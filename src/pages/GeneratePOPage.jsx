@@ -40,94 +40,175 @@ import {
 
 const SEED_POS = [
   {
-    poNumber: 'PO-2026-B01',
-    vendorName: 'Blinkit',
-    totalQuantity: 500,
-    location: 'RAIPUR',
-    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
-    createdBy: 'Admin User',
-    timestamp: '2026-06-18T06:30:00.000Z'
-  },
-  {
-    poNumber: 'PO-2026-B02',
-    vendorName: 'Blinkit',
-    totalQuantity: 300,
-    location: 'BILASPUR',
-    address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',
-    createdBy: 'Admin User',
-    timestamp: '2026-06-18T06:40:00.000Z'
-  },
-  {
-    poNumber: '6123510002178',
+    poNumber: '4756910003312',
     vendorName: 'Blinkit',
     totalQuantity: 250,
     location: 'RAIPUR',
     address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
     createdBy: 'Admin User',
-    timestamp: '2026-06-18T07:04:32.214Z'
+    timestamp: '2026-06-18T06:00:00.000Z'
   },
   {
-    poNumber: '4478410002562',
+    poNumber: '17530310001542',
     vendorName: 'Zepto',
     totalQuantity: 120,
     location: 'DURG',
     address: 'Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001',
     createdBy: 'Jane Doe',
-    timestamp: '2026-06-18T07:04:24.647Z'
-  },
-  {
-    poNumber: 'PO-2026-Z02',
-    vendorName: 'Zepto',
-    totalQuantity: 180,
-    location: 'DURG',
-    address: 'Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001',
-    createdBy: 'Jane Doe',
-    timestamp: '2026-06-18T06:50:00.000Z'
-  },
-  {
-    poNumber: 'PO-2026-Z03',
-    vendorName: 'Zepto',
-    totalQuantity: 200,
-    location: 'RAIPUR',
-    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
-    createdBy: 'Jane Doe',
-    timestamp: '2026-06-18T06:55:00.000Z'
-  },
-  {
-    poNumber: 'PO-2026-I01',
-    vendorName: 'Instamart',
-    totalQuantity: 450,
-    location: 'BILASPUR',
-    address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',
-    createdBy: 'User One',
-    timestamp: '2026-06-18T06:00:00.000Z'
-  },
-  {
-    poNumber: 'PO-2026-I02',
-    vendorName: 'Instamart',
-    totalQuantity: 150,
-    location: 'RAIPUR',
-    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
-    createdBy: 'User One',
     timestamp: '2026-06-18T06:05:00.000Z'
   },
   {
-    poNumber: 'PO-2026-I03',
+    poNumber: '28313510000617',
     vendorName: 'Instamart',
-    totalQuantity: 600,
-    location: 'DURG',
-    address: 'Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001',
+    totalQuantity: 180,
+    location: 'BILASPUR',
+    address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',
     createdBy: 'User One',
     timestamp: '2026-06-18T06:10:00.000Z'
   },
   {
-    poNumber: 'PO-2026-I04',
+    poNumber: '6770710002534',
+    vendorName: 'Blinkit',
+    totalQuantity: 350,
+    location: 'RAIPUR',
+    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
+    createdBy: 'Admin User',
+    timestamp: '2026-06-18T06:15:00.000Z'
+  },
+  {
+    poNumber: '6365710002530',
+    vendorName: 'Zepto',
+    totalQuantity: 220,
+    location: 'RAIPUR',
+    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
+    createdBy: 'Jane Doe',
+    timestamp: '2026-06-18T06:20:00.000Z'
+  },
+  {
+    poNumber: '6770710002344',
     vendorName: 'Instamart',
-    totalQuantity: 800,
+    totalQuantity: 400,
     location: 'BILASPUR',
     address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',
     createdBy: 'User One',
-    timestamp: '2026-06-18T06:15:00.000Z'
+    timestamp: '2026-06-18T06:25:00.000Z'
+  },
+  {
+    poNumber: '4756910003396',
+    vendorName: 'Blinkit',
+    totalQuantity: 290,
+    location: 'DURG',
+    address: 'Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001',
+    createdBy: 'Admin User',
+    timestamp: '2026-06-18T06:30:00.000Z'
+  },
+  {
+    poNumber: '6120910003105',
+    vendorName: 'Zepto',
+    totalQuantity: 150,
+    location: 'BILASPUR',
+    address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',
+    createdBy: 'Jane Doe',
+    timestamp: '2026-06-18T06:35:00.000Z'
+  },
+  {
+    poNumber: '4478410003458',
+    vendorName: 'Instamart',
+    totalQuantity: 500,
+    location: 'RAIPUR',
+    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
+    createdBy: 'User One',
+    timestamp: '2026-06-18T06:40:00.000Z'
+  },
+  {
+    poNumber: '17530310001615',
+    vendorName: 'Blinkit',
+    totalQuantity: 320,
+    location: 'DURG',
+    address: 'Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001',
+    createdBy: 'Admin User',
+    timestamp: '2026-06-18T06:45:00.000Z'
+  },
+  {
+    poNumber: '6123510003070',
+    vendorName: 'Zepto',
+    totalQuantity: 130,
+    location: 'RAIPUR',
+    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
+    createdBy: 'Jane Doe',
+    timestamp: '2026-06-18T06:50:00.000Z'
+  },
+  {
+    poNumber: '28313510000700',
+    vendorName: 'Instamart',
+    totalQuantity: 210,
+    location: 'BILASPUR',
+    address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',
+    createdBy: 'User One',
+    timestamp: '2026-06-18T06:55:00.000Z'
+  },
+  {
+    poNumber: '19242410001560',
+    vendorName: 'Blinkit',
+    totalQuantity: 450,
+    location: 'DURG',
+    address: 'Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001',
+    createdBy: 'Admin User',
+    timestamp: '2026-06-18T07:00:00.000Z'
+  },
+  {
+    poNumber: '22223310001089',
+    vendorName: 'Zepto',
+    totalQuantity: 270,
+    location: 'RAIPUR',
+    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
+    createdBy: 'Jane Doe',
+    timestamp: '2026-06-18T07:05:00.000Z'
+  },
+  {
+    poNumber: '4478410003477',
+    vendorName: 'Instamart',
+    totalQuantity: 310,
+    location: 'BILASPUR',
+    address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',
+    createdBy: 'User One',
+    timestamp: '2026-06-18T07:10:00.000Z'
+  },
+  {
+    poNumber: '14703810002069',
+    vendorName: 'Blinkit',
+    totalQuantity: 550,
+    location: 'RAIPUR',
+    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
+    createdBy: 'Admin User',
+    timestamp: '2026-06-18T07:15:00.000Z'
+  },
+  {
+    poNumber: '6123510003088',
+    vendorName: 'Zepto',
+    totalQuantity: 160,
+    location: 'DURG',
+    address: 'Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001',
+    createdBy: 'Jane Doe',
+    timestamp: '2026-06-18T07:20:00.000Z'
+  },
+  {
+    poNumber: '6120910003120',
+    vendorName: 'Instamart',
+    totalQuantity: 240,
+    location: 'BILASPUR',
+    address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',
+    createdBy: 'User One',
+    timestamp: '2026-06-18T07:25:00.000Z'
+  },
+  {
+    poNumber: '28313510000716',
+    vendorName: 'Blinkit',
+    totalQuantity: 380,
+    location: 'RAIPUR',
+    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
+    createdBy: 'Admin User',
+    timestamp: '2026-06-18T07:30:00.000Z'
   }
 ];
 

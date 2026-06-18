@@ -22,7 +22,8 @@ import {
   PieChart, 
   ArrowRight,
   User,
-  ShieldAlert
+  ShieldAlert,
+  Clock
 } from 'lucide-react';
 
 // ─── Helper to resolve PO Stage details ──────────────────────────────
