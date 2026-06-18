@@ -31,6 +31,12 @@ export const SEED_VENDORS = [
   { id: '1781765658987', name: 'Instamart', phone: '9876543210' },
 ];
 
+export const SEED_TRANSPORTERS = [
+  { id: '1', name: 'XYZ Logistics', phone: '9876543212' },
+  { id: '2', name: 'Speed Cargo', phone: '9876543213' },
+  { id: '3', name: 'FastTrack Transport', phone: '9876543214' },
+];
+
 export const SEED_BILLS = [
   { poNumber: '28313510000617',  vendorName: 'Instamart', totalQuantity: 180, location: 'BILASPUR', address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',     plannedDate: '2026-06-18T06:10:00.000Z', actualDate: null,                        status: 'pending',   delay: 0, updatedBy: '',           createdAt: '2026-06-18T06:10:00.000Z' },
   { poNumber: '6770710002534',   vendorName: 'Blinkit',   totalQuantity: 350, location: 'RAIPUR',   address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',             plannedDate: '2026-06-18T06:15:00.000Z', actualDate: null,                        status: 'pending',   delay: 0, updatedBy: '',           createdAt: '2026-06-18T06:15:00.000Z' },

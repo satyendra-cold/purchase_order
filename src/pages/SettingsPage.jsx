@@ -53,23 +53,7 @@ import {
   Package
 } from 'lucide-react';
 
-const SEED_VENDORS = [
-  {
-    id: '1',
-    name: 'Blinkit',
-    phone: '9876543210'
-  },
-  {
-    id: '2',
-    name: 'Zepto',
-    phone: '9876543211'
-  },
-  {
-    id: '1781765658987',
-    name: 'Instamart',
-    phone: '9876543210'
-  }
-];
+import { SEED_VENDORS, SEED_TRANSPORTERS } from '@/utils/seedData';
 
 const PAGE_ICON_MAP = {
   'Dashboard': LayoutDashboard,
@@ -88,12 +72,13 @@ export function SettingsPage() {
   const { users, currentUser, addUser, updateUser } = useAuth();
   const { toast } = useToast();
 
-  // Tab State: 'staff' or 'vendors'
+  // Tab State: 'staff', 'vendors', or 'transporters'
   const [activeTab, setActiveTab] = useState('staff');
   
   // Search & Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [vendorSearchTerm, setVendorSearchTerm] = useState('');
+  const [transporterSearchTerm, setTransporterSearchTerm] = useState('');
 
   // ----------------------------------------------------
   // STAFF MANAGEMENT STATE & HANDLERS
@@ -297,6 +282,92 @@ export function SettingsPage() {
     v.phone.toLowerCase().includes(vendorSearchTerm.toLowerCase())
   );
 
+  // ----------------------------------------------------
+  // TRANSPORTER STATE & HANDLERS
+  // ----------------------------------------------------
+  const [transporters, setTransporters] = useLocalStorage('procureflow_transporters', SEED_TRANSPORTERS);
+  const [isTransporterModalOpen, setIsTransporterModalOpen] = useState(false);
+  const [isEditingTransporter, setIsEditingTransporter] = useState(false);
+  const [transporterErrorMsg, setTransporterErrorMsg] = useState('');
+
+  const [transporterId, setTransporterId] = useState('');
+  const [transporterName, setTransporterName] = useState('');
+  const [transporterPhone, setTransporterPhone] = useState('');
+
+  const handleOpenAddTransporterModal = () => {
+    setIsEditingTransporter(false);
+    setTransporterId('');
+    setTransporterName('');
+    setTransporterPhone('');
+    setTransporterErrorMsg('');
+    setIsTransporterModalOpen(true);
+  };
+
+  const handleOpenEditTransporterModal = (transporter) => {
+    setIsEditingTransporter(true);
+    setTransporterId(transporter.id);
+    setTransporterName(transporter.name);
+    setTransporterPhone(transporter.phone || '');
+    setTransporterErrorMsg('');
+    setIsTransporterModalOpen(true);
+  };
+
+  const handleSubmitTransporter = (e) => {
+    e.preventDefault();
+    setTransporterErrorMsg('');
+
+    if (!transporterName.trim()) {
+      setTransporterErrorMsg('Please fill in the Transporter Name.');
+      return;
+    }
+
+    if (transporterPhone.trim()) {
+      const phoneRegex = /^(?:\+91|91|0)?[6-9]\d{9}$/;
+      if (!phoneRegex.test(transporterPhone.replace(/\s+/g, ''))) {
+        setTransporterErrorMsg('Please enter a valid 10-digit Indian phone number.');
+        return;
+      }
+    }
+
+    const nameExists = transporters.some(
+      t => t.id !== transporterId && t.name.trim().toLowerCase() === transporterName.trim().toLowerCase()
+    );
+    if (nameExists) {
+      setTransporterErrorMsg('Transporter Name is already registered.');
+      return;
+    }
+
+    const transporterData = {
+      id: transporterId || Date.now().toString(),
+      name: transporterName.trim(),
+      phone: transporterPhone.trim()
+    };
+
+    if (isEditingTransporter) {
+      setTransporters(transporters.map(t => t.id === transporterId ? transporterData : t));
+      toast(`Transporter "${transporterName.trim()}" updated successfully!`, 'success');
+    } else {
+      setTransporters([...transporters, transporterData]);
+      toast(`Transporter "${transporterName.trim()}" registered successfully!`, 'success');
+    }
+
+    setIsTransporterModalOpen(false);
+  };
+
+  const handleDeleteTransporter = (id) => {
+    const target = transporters.find(t => t.id === id);
+    const name = target ? target.name : id;
+    if (window.confirm(`Are you sure you want to delete transporter "${name}"?`)) {
+      setTransporters(transporters.filter(t => t.id !== id));
+      toast(`Transporter "${name}" deleted successfully.`, 'success');
+    }
+  };
+
+  const filteredTransporters = transporters.filter(t =>
+    t.name.toLowerCase().includes(transporterSearchTerm.toLowerCase()) ||
+    t.phone.toLowerCase().includes(transporterSearchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
       
@@ -304,12 +375,14 @@ export function SettingsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="text-left">
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
-            {activeTab === 'staff' ? 'User Settings' : 'Vendor Settings'}
+            {activeTab === 'staff' ? 'User Settings' : activeTab === 'vendors' ? 'Vendor Settings' : 'Transporter Settings'}
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground mt-1">
             {activeTab === 'staff'
               ? 'Manage your procurement staff records, system roles, and page access privileges.'
-              : 'Manage registered suppliers and their contact telephone numbers.'}
+              : activeTab === 'vendors'
+              ? 'Manage registered suppliers and their contact telephone numbers.'
+              : 'Manage registered transporters and their contact numbers.'}
           </p>
         </div>
 
@@ -329,6 +402,15 @@ export function SettingsPage() {
           >
             <Building2 className="h-4 w-4" />
             Add Vendor
+          </Button>
+        )}
+        {activeTab === 'transporters' && (
+          <Button 
+            onClick={handleOpenAddTransporterModal}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 self-start sm:self-center rounded-xl cursor-pointer shadow-sm text-xs sm:text-sm h-10 px-4"
+          >
+            <Truck className="h-4 w-4" />
+            Add Transporter
           </Button>
         )}
       </div>
@@ -356,6 +438,17 @@ export function SettingsPage() {
         >
           <Briefcase className="h-4 w-4" />
           Manage Vendors
+        </button>
+        <button
+          onClick={() => setActiveTab('transporters')}
+          className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all duration-200 cursor-pointer ${
+            activeTab === 'transporters'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/40'
+          }`}
+        >
+          <Truck className="h-4 w-4" />
+          Manage Transporters
         </button>
       </div>
 
@@ -531,6 +624,98 @@ export function SettingsPage() {
                     <TableRow>
                       <TableCell colSpan={3} className="py-12 text-center text-muted-foreground text-sm">
                         No vendors match your search query.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* TRANSPORTER MANAGEMENT CONTENT */}
+      {activeTab === 'transporters' && (
+        <Card className="border-border bg-card shadow-sm rounded-2xl">
+          <CardHeader className="py-4 px-4 md:px-6 border-b border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div className="relative max-w-sm flex-1">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input 
+                placeholder="Search by transporter name or phone..." 
+                value={transporterSearchTerm}
+                onChange={(e) => setTransporterSearchTerm(e.target.value)}
+                className="pl-9 rounded-xl border-input bg-background text-xs sm:text-sm h-9 max-w-xs"
+              />
+            </div>
+            <div className="text-xs text-muted-foreground text-left sm:text-right flex items-center justify-start sm:justify-end">
+              Total transporters: {filteredTransporters.length}
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="overflow-x-auto w-full">
+              <Table>
+                <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border">
+                  <TableRow>
+                    <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Transporter Name</TableHead>
+                    <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Phone Number</TableHead>
+                    <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-right pr-4 md:pr-6">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredTransporters.length > 0 ? (
+                    filteredTransporters.map((transporter) => (
+                      <TableRow key={transporter.id} className="hover:bg-accent/40 border-b border-border transition-colors">
+                        
+                        {/* Transporter Name */}
+                        <TableCell className="pl-4 md:pl-6 py-4 text-left">
+                          <div className="flex items-center gap-2.5 sm:gap-3">
+                            <div className="h-8 w-8 sm:h-10 sm:w-10 shrink-0 rounded-full bg-accent text-accent-foreground text-[10px] sm:text-xs flex items-center justify-center font-bold">
+                              {transporter.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()}
+                            </div>
+                            <span className="text-xs sm:text-sm font-semibold text-foreground truncate max-w-[180px] sm:max-w-none">
+                              {transporter.name}
+                            </span>
+                          </div>
+                        </TableCell>
+
+                        {/* Phone Number */}
+                        <TableCell className="py-4 text-left">
+                          <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
+                            <Phone className="h-3.5 w-3.5 shrink-0" />
+                            {transporter.phone}
+                          </span>
+                        </TableCell>
+
+                         {/* Actions */}
+                        <TableCell className="py-4 text-right pr-4 md:pr-6">
+                          <div className="flex items-center justify-end gap-1.5 font-normal">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleOpenEditTransporterModal(transporter)}
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
+                              title="Edit Transporter"
+                            >
+                              <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleDeleteTransporter(transporter.id)}
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                              title="Delete Transporter"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={3} className="py-12 text-center text-muted-foreground text-sm">
+                        No transporters match your search query.
                       </TableCell>
                     </TableRow>
                   )}
@@ -818,6 +1003,82 @@ export function SettingsPage() {
                 className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl cursor-pointer"
               >
                 {isEditingVendor ? 'Save Changes' : 'Create Record'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* TRANSPORTER DIALOG MODAL */}
+      <Dialog open={isTransporterModalOpen} onOpenChange={setIsTransporterModalOpen}>
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()} className="sm:max-w-[400px] bg-card border-border shadow-xl rounded-2xl p-6">
+          <form onSubmit={handleSubmitTransporter}>
+            <DialogHeader className="text-left mb-4">
+              <DialogTitle className="text-xl font-bold text-foreground flex items-center gap-2">
+                <Truck className="h-5 w-5 text-primary" />
+                {isEditingTransporter ? 'Modify Transporter Profile' : 'Register New Transporter'}
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-1">
+                {isEditingTransporter 
+                  ? 'Update transporter contact details.' 
+                  : 'Register a new transporter in the local directory.'}
+              </DialogDescription>
+            </DialogHeader>
+
+            {transporterErrorMsg && (
+              <div className="mb-4 p-3 bg-destructive/5 border border-destructive/10 text-destructive rounded-xl text-xs flex items-center gap-2 animate-in fade-in duration-200">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span className="font-semibold">{transporterErrorMsg}</span>
+              </div>
+            )}
+
+            <div className="space-y-4 py-2">
+              
+              {/* Transporter Name */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="transporter-name" className="text-xs font-semibold text-muted-foreground pl-0.5">
+                  Transporter Name*
+                </Label>
+                <Input
+                  id="transporter-name"
+                  value={transporterName}
+                  onChange={(e) => setTransporterName(e.target.value)}
+                  placeholder="e.g. XYZ Logistics"
+                  className="rounded-xl bg-background border-input"
+                  required
+                />
+              </div>
+
+              {/* Transporter Phone */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="transporter-phone" className="text-xs font-semibold text-muted-foreground pl-0.5">
+                  Phone Number
+                </Label>
+                <Input
+                  id="transporter-phone"
+                  value={transporterPhone}
+                  onChange={(e) => setTransporterPhone(e.target.value)}
+                  placeholder="e.g. 9876543210"
+                  className="rounded-xl bg-background border-input"
+                />
+              </div>
+
+            </div>
+
+            <DialogFooter className="mt-6 gap-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsTransporterModalOpen(false)}
+                className="border-border hover:bg-accent rounded-xl cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl cursor-pointer"
+              >
+                {isEditingTransporter ? 'Save Changes' : 'Create Record'}
               </Button>
             </DialogFooter>
           </form>

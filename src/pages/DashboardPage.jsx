@@ -5,17 +5,6 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
-import {
-  SEED_POS,
-  SEED_VENDORS,
-  SEED_BILLS,
-  SEED_READY_PRODUCTS,
-  SEED_CHECK_TRANSPORT,
-  SEED_PRINT_INVOICE,
-  SEED_SUPPLY_CHECK,
-  SEED_APPROVE_PRODUCT,
-  SEED_PAYMENT_PROCESSING
-} from '@/utils/seedData';
 import { 
   Receipt, 
   ShoppingBag, 
@@ -106,26 +95,25 @@ export function DashboardPage() {
   const { users } = useAuth();
 
   // ─── Local Storage State Lists ─────────────────────────────────────
-  const [purchaseOrders] = useLocalStorage('procureflow_generated_pos', SEED_POS);
-  const [bills] = useLocalStorage('procureflow_bills', SEED_BILLS);
-  const [readyProducts] = useLocalStorage('procureflow_ready_products', SEED_READY_PRODUCTS);
-  const [checkTransport] = useLocalStorage('procureflow_check_transport', SEED_CHECK_TRANSPORT);
-  const [printInvoice] = useLocalStorage('procureflow_print_invoice', SEED_PRINT_INVOICE);
-  const [supplyCheck] = useLocalStorage('procureflow_supply_check', SEED_SUPPLY_CHECK);
-  const [approveProduct] = useLocalStorage('procureflow_approve_product', SEED_APPROVE_PRODUCT);
-  const [paymentProcessing] = useLocalStorage('procureflow_payment_processing', SEED_PAYMENT_PROCESSING);
-  const [vendorsList] = useLocalStorage('procureflow_vendors', SEED_VENDORS);
+  const [purchaseOrders] = useLocalStorage('procureflow_generated_pos', []);
+  const [bills] = useLocalStorage('procureflow_bills', []);
+  const [readyProducts] = useLocalStorage('procureflow_ready_products', []);
+  const [checkTransport] = useLocalStorage('procureflow_check_transport', []);
+  const [printInvoice] = useLocalStorage('procureflow_print_invoice', []);
+  const [supplyCheck] = useLocalStorage('procureflow_supply_check', []);
+  const [approveProduct] = useLocalStorage('procureflow_approve_product', []);
+  const [paymentProcessing] = useLocalStorage('procureflow_payment_processing', []);
+  const [vendorsList] = useLocalStorage('procureflow_vendors', []);
   
-  // Fall back to seed data when localStorage is empty
-  const displayPOs = purchaseOrders.length > 0 ? purchaseOrders : SEED_POS;
-  const displayBills = bills.length > 0 ? bills : SEED_BILLS;
-  const displayReadyProducts = readyProducts.length > 0 ? readyProducts : SEED_READY_PRODUCTS;
-  const displayCheckTransport = checkTransport.length > 0 ? checkTransport : SEED_CHECK_TRANSPORT;
-  const displayPrintInvoice = printInvoice.length > 0 ? printInvoice : SEED_PRINT_INVOICE;
-  const displaySupplyCheck = supplyCheck.length > 0 ? supplyCheck : SEED_SUPPLY_CHECK;
-  const displayApproveProduct = approveProduct.length > 0 ? approveProduct : SEED_APPROVE_PRODUCT;
-  const displayPaymentProcessing = paymentProcessing.length > 0 ? paymentProcessing : SEED_PAYMENT_PROCESSING;
-  const displayVendorsList = vendorsList.length > 0 ? vendorsList : SEED_VENDORS;
+  const displayPOs = purchaseOrders;
+  const displayBills = bills;
+  const displayReadyProducts = readyProducts;
+  const displayCheckTransport = checkTransport;
+  const displayPrintInvoice = printInvoice;
+  const displaySupplyCheck = supplyCheck;
+  const displayApproveProduct = approveProduct;
+  const displayPaymentProcessing = paymentProcessing;
+  const displayVendorsList = vendorsList;
 
   // Interactive chart state
   const [hoveredVendor, setHoveredVendor] = useState(null);

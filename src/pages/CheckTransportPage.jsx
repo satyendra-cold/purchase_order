@@ -2,10 +2,19 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { SEED_TRANSPORTERS } from '@/utils/seedData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +32,7 @@ import {
   Timer,
   Truck,
   MapPin,
+  Map,
   CalendarClock,
   CalendarCheck2,
   Eye,
@@ -68,178 +78,6 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
-const SEED_CHECK_TRANSPORT = [
-  {
-    poNumber: "4756910003396",
-    vendorName: "Blinkit",
-    totalQuantity: 290,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T07:40:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    createdAt: "2026-06-18T07:40:00.000Z"
-  },
-  {
-    poNumber: "6120910003105",
-    vendorName: "Zepto",
-    totalQuantity: 150,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T07:45:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    createdAt: "2026-06-18T07:45:00.000Z"
-  },
-  {
-    poNumber: "4478410003458",
-    vendorName: "Instamart",
-    totalQuantity: 500,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:50:00.000Z",
-    actualDate: "2026-06-18T08:20:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:50:00.000Z"
-  },
-  {
-    poNumber: "17530310001615",
-    vendorName: "Blinkit",
-    totalQuantity: 320,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T07:55:00.000Z",
-    actualDate: "2026-06-18T08:25:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:55:00.000Z"
-  },
-  {
-    poNumber: "6123510003070",
-    vendorName: "Zepto",
-    totalQuantity: 130,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T08:00:00.000Z",
-    actualDate: "2026-06-18T08:30:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:00:00.000Z"
-  },
-  {
-    poNumber: "28313510000700",
-    vendorName: "Instamart",
-    totalQuantity: 210,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T08:05:00.000Z",
-    actualDate: "2026-06-18T08:35:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:05:00.000Z"
-  },
-  {
-    poNumber: "19242410001560",
-    vendorName: "Blinkit",
-    totalQuantity: 450,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T08:10:00.000Z",
-    actualDate: "2026-06-18T08:40:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:10:00.000Z"
-  },
-  {
-    poNumber: "22223310001089",
-    vendorName: "Zepto",
-    totalQuantity: 270,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T08:15:00.000Z",
-    actualDate: "2026-06-18T08:45:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:15:00.000Z"
-  },
-  {
-    poNumber: "4478410003477",
-    vendorName: "Instamart",
-    totalQuantity: 310,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T08:20:00.000Z",
-    actualDate: "2026-06-18T08:50:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:20:00.000Z"
-  },
-  {
-    poNumber: "14703810002069",
-    vendorName: "Blinkit",
-    totalQuantity: 550,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T08:25:00.000Z",
-    actualDate: "2026-06-18T08:55:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:25:00.000Z"
-  },
-  {
-    poNumber: "6123510003088",
-    vendorName: "Zepto",
-    totalQuantity: 160,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T08:30:00.000Z",
-    actualDate: "2026-06-18T09:00:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:30:00.000Z"
-  },
-  {
-    poNumber: "6120910003120",
-    vendorName: "Instamart",
-    totalQuantity: 240,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T08:35:00.000Z",
-    actualDate: "2026-06-18T09:05:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:35:00.000Z"
-  },
-  {
-    poNumber: "28313510000716",
-    vendorName: "Blinkit",
-    totalQuantity: 380,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T08:40:00.000Z",
-    actualDate: "2026-06-18T09:10:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:40:00.000Z"
-  }
-];
-
 // ─── Component ──────────────────────────────────────────────────────
 
 export function CheckTransportPage() {
@@ -247,10 +85,16 @@ export function CheckTransportPage() {
   const { toast } = useToast();
 
   // This stage's records (pushed from ReadyProductPage)
-  const [items, setItems] = useLocalStorage('procureflow_check_transport', SEED_CHECK_TRANSPORT);
+  const [items, setItems] = useLocalStorage('procureflow_check_transport', []);
 
   // Next stage storage — push completed items here
   const [nextStage, setNextStage] = useLocalStorage('procureflow_print_invoice', []);
+
+  // Locations for the form dropdown
+  const [locations] = useLocalStorage('procureflow_locations', ['RAIPUR', 'DURG', 'BILASPUR']);
+
+  // Transporters for the form dropdown
+  const [transporters] = useLocalStorage('procureflow_transporters', SEED_TRANSPORTERS);
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
@@ -258,15 +102,33 @@ export function CheckTransportPage() {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
 
+  // Confirm dialog form fields
+  const [actualDateInput, setActualDateInput] = useState('');
+  const [transporterName, setTransporterName] = useState('');
+  const [editQuantity, setEditQuantity] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+
   // ── Mark as transport verified ─────────────────────────────────────
   const handleMarkComplete = (item) => {
-    const now = new Date().toISOString();
-    const delay = calcDelayDays(item.plannedDate, now);
+    const selectedDate = actualDateInput || new Date().toISOString();
+    const selectedDateObj = new Date(selectedDate);
+    const delay = calcDelayDays(item.plannedDate, selectedDateObj.toISOString());
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
 
     const updated = items.map((r) =>
       r.poNumber === item.poNumber
-        ? { ...r, actualDate: now, status: 'completed', delay, updatedBy: userName }
+        ? {
+            ...r,
+            actualDate: selectedDateObj.toISOString(),
+            status: 'completed',
+            delay,
+            updatedBy: userName,
+            transporter: transporterName.trim(),
+            totalQuantity: parseInt(editQuantity, 10) || r.totalQuantity,
+            location: editLocation,
+            address: editAddress.trim(),
+          }
         : r
     );
     setItems(updated);
@@ -277,10 +139,11 @@ export function CheckTransportPage() {
       const nextEntry = {
         poNumber: item.poNumber,
         vendorName: item.vendorName,
-        totalQuantity: item.totalQuantity,
-        location: item.location,
-        address: item.address,
-        plannedDate: now,
+        totalQuantity: parseInt(editQuantity, 10) || item.totalQuantity,
+        location: editLocation,
+        address: editAddress.trim() || item.address,
+        transporter: transporterName.trim(),
+        plannedDate: selectedDateObj.toISOString(),
         actualDate: null,
         status: 'pending',
         delay: 0,
@@ -375,6 +238,7 @@ export function CheckTransportPage() {
       {/* Main Table Card */}
       <Card className="border-border bg-card shadow-sm rounded-2xl">
         <CardHeader className="py-4 px-4 md:px-6 border-b border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          {/* Left: search + record count */}
           <div className="flex items-center gap-3">
             <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -389,21 +253,25 @@ export function CheckTransportPage() {
               {filteredItems.length} record(s)
             </div>
           </div>
-          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
-                  activeTab === tab.key
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab.label}
-                <span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
-              </button>
-            ))}
+
+          {/* Right: status tabs + add button */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                    activeTab === tab.key
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab.label}
+                  <span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
+                </button>
+              ))}
+            </div>
           </div>
         </CardHeader>
 
@@ -415,6 +283,7 @@ export function CheckTransportPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Actions</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Transporter</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned Date</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Actual Date</TableHead>
@@ -433,7 +302,14 @@ export function CheckTransportPage() {
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
                           {item.status === 'pending' && (
-                            <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
+                            <Button onClick={() => {
+                              setActualDateInput(new Date().toISOString().split('T')[0]);
+                              setTransporterName(item.transporter || '');
+                              setEditQuantity(String(item.totalQuantity));
+                              setEditLocation(item.location);
+                              setEditAddress(item.address || '');
+                              setConfirmDialog({ open: true, item });
+                            }} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
                               <Truck className="h-3.5 w-3.5" />Transport Verified
                             </Button>
                           )}
@@ -441,6 +317,13 @@ export function CheckTransportPage() {
                       </TableCell>
                       <TableCell className="pl-4 md:pl-6 py-4 text-left font-semibold text-primary text-xs sm:text-sm">{item.poNumber}</TableCell>
                       <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">{item.vendorName}</TableCell>
+                      <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+                        {item.transporter ? (
+                          <span className="font-medium text-foreground">{item.transporter}</span>
+                        ) : (
+                          <span className="italic">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="py-4 text-left">
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
                           <MapPin className="h-2.5 w-2.5 text-muted-foreground" />{item.location}
@@ -500,7 +383,7 @@ export function CheckTransportPage() {
                           <p className="text-sm font-semibold text-foreground/70">No transport records</p>
                           <p className="text-xs">
                             {items.length === 0
-                              ? 'Complete products in the Ready Product page first — they will appear here automatically.'
+                              ? 'No transport records yet. Mark a product as ready in the Ready Product page first.'
                               : 'No records match your current filters.'}
                           </p>
                         </div>
@@ -516,18 +399,18 @@ export function CheckTransportPage() {
 
       {/* Confirm Dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[440px] bg-card border-border shadow-xl rounded-2xl p-6">
+        <DialogContent className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6">
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Truck className="h-5 w-5 text-emerald-500" />
               Confirm Transport Verified
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-1">
-              This will mark transport as verified and move the PO to Print Invoice.
+              Fill in transport details to mark this PO as verified.
             </DialogDescription>
           </DialogHeader>
           {confirmDialog.item && (
-            <div className="space-y-3 py-3">
+            <div className="space-y-4 py-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">PO Number</span>
                 <span className="font-semibold text-primary">{confirmDialog.item.poNumber}</span>
@@ -536,14 +419,83 @@ export function CheckTransportPage() {
                 <span className="text-muted-foreground">Vendor</span>
                 <span className="font-medium">{confirmDialog.item.vendorName}</span>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Planned Date</span>
-                <span className="font-medium">{formatDate(confirmDialog.item.plannedDate)}</span>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Actual Date*</Label>
+                <Input
+                  type="date"
+                  value={actualDateInput}
+                  onChange={(e) => setActualDateInput(e.target.value)}
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                  required
+                />
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Processed By</span>
-                <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Truck className="h-3.5 w-3.5" />
+                  Transporter Name*
+                </Label>
+                <Select value={transporterName} onValueChange={setTransporterName}>
+                  <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-10">
+                    <SelectValue placeholder="Select a transporter" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {transporters.map((t) => (
+                      <SelectItem key={t.id} value={t.name} className="text-xs focus:bg-accent cursor-pointer">
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Quantity*</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={editQuantity}
+                  onChange={(e) => setEditQuantity(e.target.value)}
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5" />
+                  Delivery Location*
+                </Label>
+                <Select value={editLocation} onValueChange={setEditLocation}>
+                  <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-10">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {locations.map((loc) => (
+                      <SelectItem key={loc} value={loc} className="text-xs focus:bg-accent cursor-pointer">
+                        {loc}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                  <Map className="h-3.5 w-3.5" />
+                  Delivery Address*
+                </Label>
+                <textarea
+                  value={editAddress}
+                  onChange={(e) => setEditAddress(e.target.value)}
+                  placeholder="Enter delivery address..."
+                  className="w-full min-w-0 rounded-xl border border-input bg-transparent px-3 py-2 text-xs sm:text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+                  rows="2"
+                  required
+                />
+              </div>
+
               <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                 <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
                   <AlertCircle className="h-3.5 w-3.5" />
@@ -596,6 +548,7 @@ export function CheckTransportPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

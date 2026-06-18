@@ -4,8 +4,16 @@ import { useToast } from '@/hooks/useToast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +34,9 @@ import {
   CalendarClock,
   CalendarCheck2,
   Eye,
+  FileDown,
 } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -44,6 +54,11 @@ const formatDate = (isoString) => {
   } catch {
     return isoString;
   }
+};
+
+const formatAmount = (amount) => {
+  if (amount == null || isNaN(amount)) return '—';
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 };
 
 const calcDelayDays = (plannedISO, actualISO) => {
@@ -68,160 +83,17 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
-const SEED_PRINT_INVOICE = [
-  {
-    poNumber: "4478410003458",
-    vendorName: "Instamart",
-    totalQuantity: 500,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T08:20:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    createdAt: "2026-06-18T08:20:00.000Z"
-  },
-  {
-    poNumber: "17530310001615",
-    vendorName: "Blinkit",
-    totalQuantity: 320,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T08:25:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    createdAt: "2026-06-18T08:25:00.000Z"
-  },
-  {
-    poNumber: "6123510003070",
-    vendorName: "Zepto",
-    totalQuantity: 130,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T08:30:00.000Z",
-    actualDate: "2026-06-18T09:00:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:30:00.000Z"
-  },
-  {
-    poNumber: "28313510000700",
-    vendorName: "Instamart",
-    totalQuantity: 210,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T08:35:00.000Z",
-    actualDate: "2026-06-18T09:05:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:35:00.000Z"
-  },
-  {
-    poNumber: "19242410001560",
-    vendorName: "Blinkit",
-    totalQuantity: 450,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T08:40:00.000Z",
-    actualDate: "2026-06-18T09:10:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:40:00.000Z"
-  },
-  {
-    poNumber: "22223310001089",
-    vendorName: "Zepto",
-    totalQuantity: 270,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T08:45:00.000Z",
-    actualDate: "2026-06-18T09:15:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:45:00.000Z"
-  },
-  {
-    poNumber: "4478410003477",
-    vendorName: "Instamart",
-    totalQuantity: 310,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T08:50:00.000Z",
-    actualDate: "2026-06-18T09:20:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:50:00.000Z"
-  },
-  {
-    poNumber: "14703810002069",
-    vendorName: "Blinkit",
-    totalQuantity: 550,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T08:55:00.000Z",
-    actualDate: "2026-06-18T09:25:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:55:00.000Z"
-  },
-  {
-    poNumber: "6123510003088",
-    vendorName: "Zepto",
-    totalQuantity: 160,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T09:00:00.000Z",
-    actualDate: "2026-06-18T09:30:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T09:00:00.000Z"
-  },
-  {
-    poNumber: "6120910003120",
-    vendorName: "Instamart",
-    totalQuantity: 240,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T09:05:00.000Z",
-    actualDate: "2026-06-18T09:35:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T09:05:00.000Z"
-  },
-  {
-    poNumber: "28313510000716",
-    vendorName: "Blinkit",
-    totalQuantity: 380,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T09:10:00.000Z",
-    actualDate: "2026-06-18T09:40:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T09:10:00.000Z"
-  }
-];
-
 // ─── Component ──────────────────────────────────────────────────────
 
 export function PrintInvoicePage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
-  // This stage's records (pushed from CheckTransportPage)
-  const [items, setItems] = useLocalStorage('procureflow_print_invoice', SEED_PRINT_INVOICE);
+  // This stage's records
+  const [items, setItems] = useLocalStorage('procureflow_print_invoice', []);
+
+  // Bills list to match amount, date, and invoice numbers
+  const [bills] = useLocalStorage('procureflow_bills', []);
 
   // Next stage storage — push completed items here
   const [nextStage, setNextStage] = useLocalStorage('procureflow_supply_check', []);
@@ -231,6 +103,323 @@ export function PrintInvoicePage() {
   const [activeTab, setActiveTab] = useState('all');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
+
+  // Decorate items with bill details dynamically
+  const decoratedItems = useMemo(() => {
+    return items.map((item) => {
+      const bill = bills.find((b) => b.poNumber === item.poNumber) || {};
+      return {
+        ...item,
+        billNumber: bill.billNumber || `BILL-${item.poNumber}`,
+        billAmount: bill.billAmount || null,
+        billDate: bill.billDate || '',
+      };
+    });
+  }, [items, bills]);
+
+  // ── Print PDF generators ──────────────────────────────────────────
+  const handlePrintPO = (item) => {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pw = 210;
+    const m = 15;
+    const c = pw - m;
+    let y = 15;
+
+    const B = (s) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(s); };
+    const N = (s) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(s); };
+    const C = (r, g, b) => doc.setTextColor(r, g, b);
+    const T = (t, x, y, a = 'left') => doc.text(t, x, y, { align: a });
+    const R = (x, y, w, h) => { doc.rect(x, y, w, h); };
+    const L = (x1, y1, x2, y2, col = 200) => { doc.setDrawColor(col); doc.line(x1, y1, x2, y2); };
+
+    // ── TOP COLOR BAR ─────────────────────────────────────────────────
+    doc.setFillColor(15, 23, 42); // slate-900 color
+    doc.rect(m, y, c - m, 22, 'F');
+    C(255, 255, 255);
+    B(18);
+    T('PROCUREMENT SYSTEM', m + 5, y + 14);
+    B(11);
+    T('PURCHASE ORDER', c - 5, y + 14, 'right');
+    y += 28;
+
+    // ── DETAILS ───────────────────────────────────────────────────────
+    C(60, 60, 60);
+    N(9);
+    T('123 Business Park, Industrial Area', m, y);
+    T(`PO Number: ${item.poNumber}`, c, y, 'right');
+    y += 5;
+    T('Raipur, Chhattisgarh - 492001', m, y);
+    T(`Date: ${formatDate(item.plannedDate)}`, c, y, 'right');
+    y += 5;
+    T('GST: 22AAAAA0000A1Z5', m, y);
+    T(`Status: ${item.status.toUpperCase()}`, c, y, 'right');
+    y += 12;
+
+    // ── DIVIDER ───────────────────────────────────────────────────────
+    L(m, y, c, y, 200); y += 8;
+
+    // ── VENDOR BOX ───────────────────────────────────────────────────
+    R(m, y, c - m, 28);
+    doc.setFillColor(245, 247, 250);
+    doc.rect(m, y, c - m, 8, 'F');
+    C(15, 23, 42);
+    B(9);
+    T('VENDOR / SUPPLIER', m + 4, y + 6);
+    C(50, 50, 50);
+    N(10);
+    T(item.vendorName, m + 4, y + 16);
+    N(8);
+    T(`Delivery Location: ${item.location}`, m + 4, y + 23);
+    T(`Shipping Address: ${item.address}`, c - 4, y + 23, 'right');
+
+    y += 36;
+    L(m, y, c, y, 200); y += 8;
+
+    // ── ITEM TABLE ────────────────────────────────────────────────────
+    const cols = [
+      { x: m, w: 8,  h: 8, label: '#' },
+      { x: m + 8, w: 72, h: 8, label: 'ITEM DESCRIPTION' },
+      { x: m + 80, w: 25, h: 8, label: 'QTY' },
+      { x: m + 105, w: 35, h: 8, label: 'RATE' },
+      { x: m + 140, w: 35, h: 8, label: 'AMOUNT' },
+    ];
+
+    // Table header
+    doc.setFillColor(15, 23, 42);
+    cols.forEach((col) => doc.rect(col.x, y, col.w, col.h, 'F'));
+    C(255, 255, 255);
+    B(8);
+    cols.forEach((col) => T(col.label, col.x + col.w / 2, y + 5.5, 'center'));
+    y += 8;
+
+    // Table body row
+    const rate = item.billAmount && item.totalQuantity
+      ? Math.round(item.billAmount / item.totalQuantity)
+      : null;
+    const rowY = y;
+    R(m, rowY, cols.reduce((s, c) => s + c.w, 0), 22);
+    C(40, 40, 40);
+    N(8);
+    T('1', cols[0].x + cols[0].w / 2, rowY + 9, 'center');
+    T(`Goods/Supplies delivery for PO ${item.poNumber}`, cols[1].x + 3, rowY + 9, 'left');
+    T(item.totalQuantity?.toLocaleString() || '—', cols[2].x + cols[2].w / 2, rowY + 9, 'center');
+    T(rate !== null ? `₹ ${rate.toLocaleString('en-IN')}` : '—', cols[3].x + cols[3].w / 2, rowY + 9, 'center');
+    T(item.billAmount ? formatAmount(item.billAmount) : '—', cols[4].x + cols[4].w / 2, rowY + 9, 'center');
+
+    // Bottom border
+    L(m, rowY + 22, c, rowY + 22, 220);
+    y = rowY + 28;
+
+    // ── AMOUNT SUMMARY ────────────────────────────────────────────────
+    if (item.billAmount) {
+      const boxX = c - 65;
+      const boxW = 50;
+      const amtY = y;
+
+      R(boxX, amtY, boxW, 36);
+      doc.setFillColor(245, 247, 250);
+      doc.rect(boxX, amtY, boxW, 7, 'F');
+      C(15, 23, 42);
+      B(8);
+      T('AMOUNT SUMMARY', boxX + boxW / 2, amtY + 5, 'center');
+
+      C(60, 60, 60);
+      N(8);
+      T('Subtotal:', boxX + 3, amtY + 13);
+      C(40, 40, 40);
+      T(formatAmount(item.billAmount), boxX + boxW - 3, amtY + 13, 'right');
+
+      C(60, 60, 60);
+      N(8);
+      T('Tax (0%):', boxX + 3, amtY + 20);
+      C(40, 40, 40);
+      T(formatAmount(0), boxX + boxW - 3, amtY + 20, 'right');
+
+      L(boxX + 5, amtY + 24, boxX + boxW - 5, amtY + 24, 180);
+
+      C(15, 23, 42);
+      B(10);
+      T('TOTAL:', boxX + 3, amtY + 32);
+      T(formatAmount(item.billAmount), boxX + boxW - 3, amtY + 32, 'right');
+
+      y = amtY + 42;
+    }
+
+    L(m, y, c, y, 200); y += 8;
+
+    // ── FOOTER ────────────────────────────────────────────────────────
+    C(100, 100, 100);
+    N(8);
+    T('This Purchase Order serves as a request for delivery according to the agreed terms.', m, y); y += 5;
+    T('Please provide the corresponding Tax Invoice at the time of delivery.', m, y); y += 12;
+
+    L(m, y, c, y, 200); y += 5;
+    C(150, 150, 150);
+    N(7);
+    T('ProcureFlow System Document', m, y);
+    T(`Printed: ${new Date().toLocaleString('en-IN')}`, c, y, 'right');
+
+    doc.save(`PO_${item.poNumber}.pdf`);
+    toast(`PO ${item.poNumber} PDF downloaded!`, 'success');
+  };
+
+  const handlePrintInvoice = (item) => {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pw = 210;
+    const m = 15;
+    const c = pw - m;
+    let y = 15;
+
+    const B = (s) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(s); };
+    const N = (s) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(s); };
+    const C = (r, g, b) => doc.setTextColor(r, g, b);
+    const T = (t, x, y, a = 'left') => doc.text(t, x, y, { align: a });
+    const R = (x, y, w, h) => { doc.rect(x, y, w, h); };
+    const L = (x1, y1, x2, y2, col = 200) => { doc.setDrawColor(col); doc.line(x1, y1, x2, y2); };
+
+    // ── TOP COLOR BAR ─────────────────────────────────────────────────
+    doc.setFillColor(22, 101, 52); // emerald-800
+    doc.rect(m, y, c - m, 22, 'F');
+    C(255, 255, 255);
+    B(18);
+    T('PROCUREMENT SYSTEM', m + 5, y + 14);
+    B(11);
+    T('TAX INVOICE', c - 5, y + 14, 'right');
+    y += 28;
+
+    // ── DETAILS ───────────────────────────────────────────────────────
+    C(60, 60, 60);
+    N(9);
+    T('123 Business Park, Industrial Area', m, y);
+    T(`Invoice #: ${item.billNumber || `BILL-${item.poNumber}`}`, c, y, 'right');
+    y += 5;
+    T('Raipur, Chhattisgarh - 492001', m, y);
+    T(`Invoice Date: ${item.billDate ? new Date(item.billDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}`, c, y, 'right');
+    y += 5;
+    T('GST: 22AAAAA0000A1Z5', m, y);
+    T(`PO #: ${item.poNumber}`, c, y, 'right');
+    y += 12;
+
+    // ── DIVIDER ───────────────────────────────────────────────────────
+    L(m, y, c, y, 200); y += 8;
+
+    // ── BILL TO BOX ───────────────────────────────────────────────────
+    R(m, y, c - m, 28);
+    doc.setFillColor(245, 247, 250);
+    doc.rect(m, y, c - m, 8, 'F');
+    C(22, 101, 52);
+    B(9);
+    T('BILL TO (VENDOR)', m + 4, y + 6);
+    C(50, 50, 50);
+    N(10);
+    T(item.vendorName, m + 4, y + 16);
+    N(8);
+    T(`Location: ${item.location}`, m + 4, y + 23);
+    T(`Address: ${item.address}`, c - 4, y + 23, 'right');
+
+    // ── SHIPMENT & LOGISTICS INFO ─────────────────────────────────────
+    const shipY = y + 34;
+    R(m, shipY, c - m, 20);
+    doc.setFillColor(245, 247, 250);
+    doc.rect(m, shipY, c - m, 8, 'F');
+    C(22, 101, 52);
+    B(9);
+    T('SHIPMENT & LOGISTICS', m + 4, shipY + 6);
+    C(50, 50, 50);
+    N(8);
+    T(`Transporter: ${item.transporter || '—'}`, m + 4, shipY + 15);
+    T(`Planned Date: ${formatDate(item.plannedDate)}`, c - 4, shipY + 15, 'right');
+
+    y = shipY + 28;
+    L(m, y, c, y, 200); y += 8;
+
+    // ── ITEM TABLE ────────────────────────────────────────────────────
+    const cols = [
+      { x: m, w: 8,  h: 8, label: '#' },
+      { x: m + 8, w: 72, h: 8, label: 'DESCRIPTION' },
+      { x: m + 80, w: 25, h: 8, label: 'QTY' },
+      { x: m + 105, w: 35, h: 8, label: 'RATE' },
+      { x: m + 140, w: 35, h: 8, label: 'AMOUNT' },
+    ];
+
+    // Table header
+    doc.setFillColor(22, 101, 52);
+    cols.forEach((col) => doc.rect(col.x, y, col.w, col.h, 'F'));
+    C(255, 255, 255);
+    B(8);
+    cols.forEach((col) => T(col.label, col.x + col.w / 2, y + 5.5, 'center'));
+    y += 8;
+
+    // Table body row
+    const rate = item.billAmount && item.totalQuantity
+      ? Math.round(item.billAmount / item.totalQuantity)
+      : null;
+    const rowY = y;
+    R(m, rowY, cols.reduce((s, c) => s + c.w, 0), 22);
+    C(40, 40, 40);
+    N(8);
+    T('1', cols[0].x + cols[0].w / 2, rowY + 9, 'center');
+    T(`${item.poNumber} - ${item.vendorName}`, cols[1].x + 3, rowY + 9, 'left');
+    T(item.totalQuantity?.toLocaleString() || '—', cols[2].x + cols[2].w / 2, rowY + 9, 'center');
+    T(rate !== null ? `₹ ${rate.toLocaleString('en-IN')}` : '—', cols[3].x + cols[3].w / 2, rowY + 9, 'center');
+    T(item.billAmount ? formatAmount(item.billAmount) : '—', cols[4].x + cols[4].w / 2, rowY + 9, 'center');
+
+    // Bottom border
+    L(m, rowY + 22, c, rowY + 22, 220);
+    y = rowY + 28;
+
+    // ── AMOUNT SUMMARY ────────────────────────────────────────────────
+    if (item.billAmount) {
+      const boxX = c - 65;
+      const boxW = 50;
+      const amtY = y;
+
+      R(boxX, amtY, boxW, 36);
+      doc.setFillColor(245, 247, 250);
+      doc.rect(boxX, amtY, boxW, 7, 'F');
+      C(22, 101, 52);
+      B(8);
+      T('AMOUNT SUMMARY', boxX + boxW / 2, amtY + 5, 'center');
+
+      C(60, 60, 60);
+      N(8);
+      T('Subtotal:', boxX + 3, amtY + 13);
+      C(40, 40, 40);
+      T(formatAmount(item.billAmount), boxX + boxW - 3, amtY + 13, 'right');
+
+      C(60, 60, 60);
+      N(8);
+      T('Tax (0%):', boxX + 3, amtY + 20);
+      C(40, 40, 40);
+      T(formatAmount(0), boxX + boxW - 3, amtY + 20, 'right');
+
+      L(boxX + 5, amtY + 24, boxX + boxW - 5, amtY + 24, 180);
+
+      C(22, 101, 52);
+      B(10);
+      T('TOTAL:', boxX + 3, amtY + 32);
+      T(formatAmount(item.billAmount), boxX + boxW - 3, amtY + 32, 'right');
+
+      y = amtY + 42;
+    }
+
+    L(m, y, c, y, 200); y += 8;
+
+    // ── FOOTER ────────────────────────────────────────────────────────
+    C(100, 100, 100);
+    N(8);
+    T('1. Payment is due within 30 days from the invoice date.', m, y); y += 5;
+    T('2. This is a system-generated invoice and is valid without a physical signature.', m, y); y += 8;
+
+    L(m, y, c, y, 200); y += 5;
+    C(150, 150, 150);
+    N(7);
+    T('Thank you for your business!', m, y);
+    T(`Generated: ${new Date().toLocaleString('en-IN')}`, c, y, 'right');
+
+    doc.save(`Invoice_${item.poNumber}.pdf`);
+    toast(`Invoice for PO ${item.poNumber} PDF downloaded!`, 'success');
+  };
 
   // ── Mark as invoice printed ────────────────────────────────────────
   const handleMarkComplete = (item) => {
@@ -270,7 +459,7 @@ export function PrintInvoicePage() {
 
   // ── Filtered & searched list ───────────────────────────────────────
   const filteredItems = useMemo(() => {
-    let list = items;
+    let list = decoratedItems;
     if (activeTab === 'pending') list = list.filter((r) => r.status === 'pending');
     else if (activeTab === 'completed') list = list.filter((r) => r.status === 'completed');
     if (searchTerm.trim()) {
@@ -280,19 +469,20 @@ export function PrintInvoicePage() {
           r.poNumber.toLowerCase().includes(q) ||
           r.vendorName.toLowerCase().includes(q) ||
           r.location.toLowerCase().includes(q) ||
+          (r.transporter && r.transporter.toLowerCase().includes(q)) ||
           (r.updatedBy && r.updatedBy.toLowerCase().includes(q))
       );
     }
     return list;
-  }, [items, activeTab, searchTerm]);
+  }, [decoratedItems, activeTab, searchTerm]);
 
   const counts = useMemo(
     () => ({
-      all: items.length,
-      pending: items.filter((r) => r.status === 'pending').length,
-      completed: items.filter((r) => r.status === 'completed').length,
+      all: decoratedItems.length,
+      pending: decoratedItems.filter((r) => r.status === 'pending').length,
+      completed: decoratedItems.filter((r) => r.status === 'completed').length,
     }),
-    [items]
+    [decoratedItems]
   );
 
   return (
@@ -361,18 +551,20 @@ export function PrintInvoicePage() {
             </div>
             <div className="text-xs text-muted-foreground hidden md:inline-block">{filteredItems.length} record(s)</div>
           </div>
-          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
-                  activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab.label}<span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
-              </button>
-            ))}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                    activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab.label}<span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
+                </button>
+              ))}
+            </div>
           </div>
         </CardHeader>
 
@@ -384,7 +576,10 @@ export function PrintInvoicePage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Actions</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Transporter</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Invoice Number</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Invoice Amount</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned Date</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Actual Date</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Status</TableHead>
@@ -401,6 +596,12 @@ export function PrintInvoicePage() {
                           <Button variant="ghost" size="icon" onClick={() => setDetailDialog({ open: true, item })} className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer" title="View details">
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handlePrintPO(item)} className="h-8 w-8 text-slate-700 hover:text-slate-900 hover:bg-accent rounded-lg cursor-pointer dark:text-slate-300 dark:hover:text-slate-100" title="Print PO">
+                            <FileDown className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handlePrintInvoice(item)} className="h-8 w-8 text-emerald-600 hover:text-emerald-800 hover:bg-accent rounded-lg cursor-pointer dark:text-emerald-400 dark:hover:text-emerald-300" title="Print Invoice">
+                            <Printer className="h-3.5 w-3.5" />
+                          </Button>
                           {item.status === 'pending' && (
                             <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
                               <Printer className="h-3.5 w-3.5" />Invoice Printed
@@ -410,10 +611,23 @@ export function PrintInvoicePage() {
                       </TableCell>
                       <TableCell className="pl-4 md:pl-6 py-4 text-left font-semibold text-primary text-xs sm:text-sm">{item.poNumber}</TableCell>
                       <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">{item.vendorName}</TableCell>
+                      <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+                        {item.transporter ? (
+                          <span className="font-medium text-foreground">{item.transporter}</span>
+                        ) : (
+                          <span className="italic">—</span>
+                        )}
+                      </TableCell>
                       <TableCell className="py-4 text-left">
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
                           <MapPin className="h-2.5 w-2.5 text-muted-foreground" />{item.location}
                         </span>
+                      </TableCell>
+                      <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
+                        {item.billNumber || '—'}
+                      </TableCell>
+                      <TableCell className="py-4 text-left font-bold text-xs sm:text-sm text-foreground">
+                        {formatAmount(item.billAmount)}
                       </TableCell>
                       <TableCell className="py-4 text-left">
                         <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
@@ -462,15 +676,13 @@ export function PrintInvoicePage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-16 text-center">
+                    <TableCell colSpan={12} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-primary/5 rounded-full"><Printer className="h-8 w-8 text-primary/40" /></div>
                         <div className="space-y-1">
                           <p className="text-sm font-semibold text-foreground/70">No invoice records</p>
                           <p className="text-xs">
-                            {items.length === 0
-                              ? 'Verify transports in Check Transport first — they will appear here automatically.'
-                              : 'No records match your current filters.'}
+                            No invoice records match your current filters.
                           </p>
                         </div>
                       </div>
@@ -495,7 +707,7 @@ export function PrintInvoicePage() {
             </DialogDescription>
           </DialogHeader>
           {confirmDialog.item && (
-            <div className="space-y-3 py-3">
+            <div className="space-y-3 py-3 text-left">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">PO Number</span>
                 <span className="font-semibold text-primary">{confirmDialog.item.poNumber}</span>
@@ -503,6 +715,18 @@ export function PrintInvoicePage() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Vendor</span>
                 <span className="font-medium">{confirmDialog.item.vendorName}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Transporter</span>
+                <span className="font-medium">{confirmDialog.item.transporter || '—'}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Invoice Number</span>
+                <span className="font-medium">{confirmDialog.item.billNumber}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Invoice Amount</span>
+                <span className="font-medium">{formatAmount(confirmDialog.item.billAmount)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Planned Date</span>
@@ -545,6 +769,10 @@ export function PrintInvoicePage() {
                 { label: 'Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
                 { label: 'Location', value: detailDialog.item.location },
                 { label: 'Address', value: detailDialog.item.address },
+                { label: 'Transporter', value: detailDialog.item.transporter || '—' },
+                { label: 'Invoice Number', value: detailDialog.item.billNumber },
+                { label: 'Invoice Amount', value: formatAmount(detailDialog.item.billAmount) },
+                { label: 'Invoice Date', value: detailDialog.item.billDate ? new Date(detailDialog.item.billDate).toLocaleDateString('en-IN') : '—' },
                 { label: 'Planned Date', value: formatDate(detailDialog.item.plannedDate) },
                 { label: 'Actual Date', value: detailDialog.item.actualDate ? formatDate(detailDialog.item.actualDate) : 'Not yet' },
                 { label: 'Status', value: detailDialog.item.status === 'completed' ? 'Completed' : 'Pending' },
@@ -558,8 +786,20 @@ export function PrintInvoicePage() {
               ))}
             </div>
           )}
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setDetailDialog({ open: false, item: null })} className="border-border hover:bg-accent rounded-xl cursor-pointer">Close</Button>
+          <DialogFooter className="mt-4 gap-2 justify-between flex-row sm:justify-between">
+            <div className="flex gap-2">
+              {detailDialog.item && (
+                <>
+                  <Button variant="outline" size="sm" onClick={() => handlePrintPO(detailDialog.item)} className="border-border hover:bg-accent rounded-xl cursor-pointer gap-1.5 text-xs">
+                    <FileDown className="h-4 w-4" />Print PO
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => handlePrintInvoice(detailDialog.item)} className="border-border hover:bg-accent rounded-xl cursor-pointer gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
+                    <Printer className="h-4 w-4" />Print Invoice
+                  </Button>
+                </>
+              )}
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setDetailDialog({ open: false, item: null })} className="border-border hover:bg-accent rounded-xl cursor-pointer text-xs">Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

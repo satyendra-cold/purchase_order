@@ -86,500 +86,6 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
-const SEED_BILLS = [
-  {
-    poNumber: "28313510000617",
-    vendorName: "Instamart",
-    totalQuantity: 180,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T06:10:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    billNumber: '',
-    billAmount: null,
-    billDate: '',
-    billPdfName: '',
-    createdAt: "2026-06-18T06:10:00.000Z"
-  },
-  {
-    poNumber: "6770710002534",
-    vendorName: "Blinkit",
-    totalQuantity: 350,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T06:15:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    billNumber: '',
-    billAmount: null,
-    billDate: '',
-    billPdfName: '',
-    createdAt: "2026-06-18T06:15:00.000Z"
-  },
-  {
-    poNumber: "6365710002530",
-    vendorName: "Zepto",
-    totalQuantity: 220,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T06:20:00.000Z",
-    actualDate: "2026-06-18T07:00:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-6365710002530',
-    billAmount: 65000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-6365710002530.pdf',
-    createdAt: "2026-06-18T06:20:00.000Z"
-  },
-  {
-    poNumber: "6770710002344",
-    vendorName: "Instamart",
-    totalQuantity: 400,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T06:25:00.000Z",
-    actualDate: "2026-06-18T07:05:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-6770710002344',
-    billAmount: 82000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-6770710002344.pdf',
-    createdAt: "2026-06-18T06:25:00.000Z"
-  },
-  {
-    poNumber: "4756910003396",
-    vendorName: "Blinkit",
-    totalQuantity: 290,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T06:30:00.000Z",
-    actualDate: "2026-06-18T07:10:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-4756910003396',
-    billAmount: 45000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-4756910003396.pdf',
-    createdAt: "2026-06-18T06:30:00.000Z"
-  },
-  {
-    poNumber: "6120910003105",
-    vendorName: "Zepto",
-    totalQuantity: 150,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T06:35:00.000Z",
-    actualDate: "2026-06-18T07:15:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-6120910003105',
-    billAmount: 38000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-6120910003105.pdf',
-    createdAt: "2026-06-18T06:35:00.000Z"
-  },
-  {
-    poNumber: "4478410003458",
-    vendorName: "Instamart",
-    totalQuantity: 500,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T06:40:00.000Z",
-    actualDate: "2026-06-18T07:20:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-4478410003458',
-    billAmount: 120000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-4478410003458.pdf',
-    createdAt: "2026-06-18T06:40:00.000Z"
-  },
-  {
-    poNumber: "17530310001615",
-    vendorName: "Blinkit",
-    totalQuantity: 320,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T06:45:00.000Z",
-    actualDate: "2026-06-18T07:25:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-17530310001615',
-    billAmount: 72000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-17530310001615.pdf',
-    createdAt: "2026-06-18T06:45:00.000Z"
-  },
-  {
-    poNumber: "6123510003070",
-    vendorName: "Zepto",
-    totalQuantity: 130,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T06:50:00.000Z",
-    actualDate: "2026-06-18T07:30:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-6123510003070',
-    billAmount: 28000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-6123510003070.pdf',
-    createdAt: "2026-06-18T06:50:00.000Z"
-  },
-  {
-    poNumber: "28313510000700",
-    vendorName: "Instamart",
-    totalQuantity: 210,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T06:55:00.000Z",
-    actualDate: "2026-06-18T07:35:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-28313510000700',
-    billAmount: 55000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-28313510000700.pdf',
-    createdAt: "2026-06-18T06:55:00.000Z"
-  },
-  {
-    poNumber: "19242410001560",
-    vendorName: "Blinkit",
-    totalQuantity: 450,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T07:00:00.000Z",
-    actualDate: "2026-06-18T07:40:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-19242410001560',
-    billAmount: 95000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-19242410001560.pdf',
-    createdAt: "2026-06-18T07:00:00.000Z"
-  },
-  {
-    poNumber: "22223310001089",
-    vendorName: "Zepto",
-    totalQuantity: 270,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:05:00.000Z",
-    actualDate: "2026-06-18T07:45:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-22223310001089',
-    billAmount: 61000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-22223310001089.pdf',
-    createdAt: "2026-06-18T07:05:00.000Z"
-  },
-  {
-    poNumber: "4478410003477",
-    vendorName: "Instamart",
-    totalQuantity: 310,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T07:10:00.000Z",
-    actualDate: "2026-06-18T07:50:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-4478410003477',
-    billAmount: 78000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-4478410003477.pdf',
-    createdAt: "2026-06-18T07:10:00.000Z"
-  },
-  {
-    poNumber: "14703810002069",
-    vendorName: "Blinkit",
-    totalQuantity: 550,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:15:00.000Z",
-    actualDate: "2026-06-18T07:55:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-14703810002069',
-    billAmount: 150000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-14703810002069.pdf',
-    createdAt: "2026-06-18T07:15:00.000Z"
-  },
-  {
-    poNumber: "6123510003088",
-    vendorName: "Zepto",
-    totalQuantity: 160,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T07:20:00.000Z",
-    actualDate: "2026-06-18T08:00:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-6123510003088',
-    billAmount: 35000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-6123510003088.pdf',
-    createdAt: "2026-06-18T07:20:00.000Z"
-  },
-  {
-    poNumber: "6120910003120",
-    vendorName: "Instamart",
-    totalQuantity: 240,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T07:25:00.000Z",
-    actualDate: "2026-06-18T08:05:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:25:00.000Z"
-  },
-  {
-    poNumber: "28313510000716",
-    vendorName: "Blinkit",
-    totalQuantity: 380,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:30:00.000Z",
-    actualDate: "2026-06-18T08:10:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-28313510000716',
-    billAmount: 88000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-28313510000716.pdf',
-    createdAt: "2026-06-18T07:30:00.000Z"
-  }
-];
-
-const SEED_READY_PRODUCTS = [
-  {
-    poNumber: "6365710002530",
-    vendorName: "Zepto",
-    totalQuantity: 220,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:00:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    billNumber: 'BILL-6365710002530',
-    billAmount: 65000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-6365710002530.pdf',
-    createdAt: "2026-06-18T07:00:00.000Z"
-  },
-  {
-    poNumber: "6770710002344",
-    vendorName: "Instamart",
-    totalQuantity: 400,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T07:05:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    createdAt: "2026-06-18T07:05:00.000Z"
-  },
-  {
-    poNumber: "4756910003396",
-    vendorName: "Blinkit",
-    totalQuantity: 290,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T07:10:00.000Z",
-    actualDate: "2026-06-18T07:40:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:10:00.000Z"
-  },
-  {
-    poNumber: "6120910003105",
-    vendorName: "Zepto",
-    totalQuantity: 150,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T07:15:00.000Z",
-    actualDate: "2026-06-18T07:45:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:15:00.000Z"
-  },
-  {
-    poNumber: "4478410003458",
-    vendorName: "Instamart",
-    totalQuantity: 500,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:20:00.000Z",
-    actualDate: "2026-06-18T07:50:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:20:00.000Z"
-  },
-  {
-    poNumber: "17530310001615",
-    vendorName: "Blinkit",
-    totalQuantity: 320,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T07:25:00.000Z",
-    actualDate: "2026-06-18T07:55:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:25:00.000Z"
-  },
-  {
-    poNumber: "6123510003070",
-    vendorName: "Zepto",
-    totalQuantity: 130,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:30:00.000Z",
-    actualDate: "2026-06-18T08:00:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:30:00.000Z"
-  },
-  {
-    poNumber: "28313510000700",
-    vendorName: "Instamart",
-    totalQuantity: 210,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T07:35:00.000Z",
-    actualDate: "2026-06-18T08:05:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:35:00.000Z"
-  },
-  {
-    poNumber: "19242410001560",
-    vendorName: "Blinkit",
-    totalQuantity: 450,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T07:40:00.000Z",
-    actualDate: "2026-06-18T08:10:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:40:00.000Z"
-  },
-  {
-    poNumber: "22223310001089",
-    vendorName: "Zepto",
-    totalQuantity: 270,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:45:00.000Z",
-    actualDate: "2026-06-18T08:15:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:45:00.000Z"
-  },
-  {
-    poNumber: "4478410003477",
-    vendorName: "Instamart",
-    totalQuantity: 310,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T07:50:00.000Z",
-    actualDate: "2026-06-18T08:20:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:50:00.000Z"
-  },
-  {
-    poNumber: "14703810002069",
-    vendorName: "Blinkit",
-    totalQuantity: 550,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:55:00.000Z",
-    actualDate: "2026-06-18T08:25:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:55:00.000Z"
-  },
-  {
-    poNumber: "6123510003088",
-    vendorName: "Zepto",
-    totalQuantity: 160,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T08:00:00.000Z",
-    actualDate: "2026-06-18T08:30:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:00:00.000Z"
-  },
-  {
-    poNumber: "6120910003120",
-    vendorName: "Instamart",
-    totalQuantity: 240,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T08:05:00.000Z",
-    actualDate: "2026-06-18T08:35:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    billNumber: 'BILL-6120910003120',
-    billAmount: 53000,
-    billDate: '2026-06-18',
-    billPdfName: 'Bill-6120910003120.pdf',
-    createdAt: "2026-06-18T08:05:00.000Z"
-  },
-  {
-    poNumber: "28313510000716",
-    vendorName: "Blinkit",
-    totalQuantity: 380,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T08:10:00.000Z",
-    actualDate: "2026-06-18T08:40:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:10:00.000Z"
-  }
-];
-
 // ─── Component ──────────────────────────────────────────────────────
 
 export function CreateBillPage() {
@@ -590,10 +96,10 @@ export function CreateBillPage() {
   const [purchaseOrders] = useLocalStorage('procureflow_generated_pos', []);
 
   // Bill records owned by this page
-  const [bills, setBills] = useLocalStorage('procureflow_bills', SEED_BILLS);
+  const [bills, setBills] = useLocalStorage('procureflow_bills', []);
 
   // Ready products – we push into this when a bill is completed
-  const [readyProducts, setReadyProducts] = useLocalStorage('procureflow_ready_products', SEED_READY_PRODUCTS);
+  const [readyProducts, setReadyProducts] = useLocalStorage('procureflow_ready_products', []);
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
@@ -681,79 +187,191 @@ export function CreateBillPage() {
   // ── Generate Bill PDF ───────────────────────────────────────────────
   const handleDownloadPdf = (bill) => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
-    const pageW = 190;
-    let y = 20;
+    const pw = 210;
+    const m = 15;
+    const c = pw - m;
+    let y = 15;
 
-    const bold = (text, size = 12) => {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(size);
-      doc.text(text, 10, y);
-      y += 7;
-    };
+    const B = (s) => { doc.setFont('helvetica', 'bold'); doc.setFontSize(s); };
+    const N = (s) => { doc.setFont('helvetica', 'normal'); doc.setFontSize(s); };
+    const C = (r, g, b) => doc.setTextColor(r, g, b);
+    const T = (t, x, y, a = 'left') => doc.text(t, x, y, { align: a });
+    const R = (x, y, w, h) => { doc.rect(x, y, w, h); };
+    const L = (x1, y1, x2, y2, col = 200) => { doc.setDrawColor(col); doc.line(x1, y1, x2, y2); };
 
-    const line = (label, value, size = 10) => {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(size);
-      doc.text(label, 15, y);
-      doc.setFont('helvetica', 'normal');
-      doc.text(String(value), 65, y);
-      y += 6;
-    };
+    // ── TOP COLOR BAR ─────────────────────────────────────────────────
+    doc.setFillColor(25, 55, 109);
+    doc.rect(m, y, c - m, 22, 'F');
+    C(255, 255, 255);
+    B(18);
+    T('PROCUREMENT SYSTEM', m + 5, y + 14);
+    B(11);
+    T('TAX INVOICE', c - 5, y + 14, 'right');
+    y += 28;
 
-    const hr = () => {
-      y += 2;
-      doc.setDrawColor(200);
-      doc.line(10, y, pageW, y);
-      y += 4;
-    };
-
-    // Header
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text('PURCHASE ORDER BILL', 10, y);
-    y += 4;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 10, y);
+    // ── COMPANY & INVOICE META ────────────────────────────────────────
+    C(60, 60, 60);
+    N(9);
+    T('123 Business Park, Industrial Area', m, y);
+    T(`Invoice #: ${bill.billNumber || `BILL-${bill.poNumber}`}`, c, y, 'right');
+    y += 5;
+    T('Raipur, Chhattisgarh - 492001', m, y);
+    T(`Date: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`, c, y, 'right');
+    y += 5;
+    C(80, 80, 80);
+    B(9);
+    T('GST: 22AAAAA0000A1Z5', m, y);
+    N(9);
+    T(`PO #: ${bill.poNumber}`, c, y, 'right');
     y += 12;
 
-    // Divider
-    hr();
+    // ── DIVIDER ───────────────────────────────────────────────────────
+    L(m, y, c, y, 200); y += 8;
 
-    // Bill details
-    bold('Bill Details', 13);
-    line('PO Number:', bill.poNumber);
-    line('Vendor:', bill.vendorName);
-    line('Quantity:', bill.totalQuantity?.toLocaleString() || '—');
-    line('Location:', bill.location);
-    line('Address:', bill.address);
-    line('Bill Number:', bill.billNumber || '—');
-    line('Bill Amount:', bill.billAmount ? formatAmount(bill.billAmount) : '—');
-    line('Bill Date:', bill.billDate || '—');
-    hr();
+    // ── BILL TO BOX ───────────────────────────────────────────────────
+    R(m, y, c - m, 28);
+    doc.setFillColor(245, 247, 250);
+    doc.rect(m, y, c - m, 8, 'F');
+    C(25, 55, 109);
+    B(9);
+    T('BILL TO', m + 4, y + 6);
+    C(50, 50, 50);
+    N(10);
+    T(bill.vendorName, m + 4, y + 16);
+    N(8);
+    T(bill.location, m + 4, y + 23);
+    T(bill.address, c - 4, y + 23, 'right');
 
-    // Dates
-    bold('Dates', 13);
-    line('PO Received:', formatReceivedDate(bill));
-    line('Planned:', bill.plannedDate ? formatDate(bill.plannedDate) : '—');
-    line('Actual:', bill.actualDate ? formatDate(bill.actualDate) : 'Not yet');
-    hr();
+    // ── SHIP TO BOX ───────────────────────────────────────────────────
+    const shipY = y + 34;
+    R(m, shipY, c - m, 20);
+    doc.setFillColor(245, 247, 250);
+    doc.rect(m, shipY, c - m, 8, 'F');
+    C(25, 55, 109);
+    B(9);
+    T('SHIP TO', m + 4, shipY + 6);
+    C(50, 50, 50);
+    N(8);
+    T(bill.location, m + 4, shipY + 15);
+    T(bill.address, c - 4, shipY + 15, 'right');
 
-    // Status
-    bold('Status', 13);
-    line('Status:', bill.status === 'completed' ? 'Completed' : 'Pending');
-    if (bill.status === 'completed') {
-      line('Delay:', bill.delay === 0 ? 'On time' : `${bill.delay} day${bill.delay > 1 ? 's' : ''}`);
-      line('Completed By:', bill.updatedBy || '—');
+    y = shipY + 28;
+    L(m, y, c, y, 200); y += 8;
+
+    // ── ITEM TABLE ────────────────────────────────────────────────────
+    const cols = [
+      { x: m, w: 8,  h: 8, label: '#' },
+      { x: m + 8, w: 72, h: 8, label: 'DESCRIPTION' },
+      { x: m + 80, w: 25, h: 8, label: 'QTY' },
+      { x: m + 105, w: 35, h: 8, label: 'RATE' },
+      { x: m + 140, w: 35, h: 8, label: 'AMOUNT' },
+    ];
+
+    // Table header
+    doc.setFillColor(25, 55, 109);
+    cols.forEach((col) => doc.rect(col.x, y, col.w, col.h, 'F'));
+    C(255, 255, 255);
+    B(8);
+    cols.forEach((col) => T(col.label, col.x + col.w / 2, y + 5.5, 'center'));
+    y += 8;
+
+    // Table body row
+    const rate = bill.billAmount && bill.totalQuantity
+      ? Math.round(bill.billAmount / bill.totalQuantity)
+      : null;
+    const rowY = y;
+    R(m, rowY, cols.reduce((s, c) => s + c.w, 0), 22);
+    C(40, 40, 40);
+    N(8);
+    T('1', cols[0].x + cols[0].w / 2, rowY + 9, 'center');
+    T(`${bill.poNumber} - ${bill.vendorName}`, cols[1].x + 3, rowY + 9, 'left');
+    T(bill.totalQuantity?.toLocaleString() || '—', cols[2].x + cols[2].w / 2, rowY + 9, 'center');
+    T(rate !== null ? `₹ ${rate.toLocaleString('en-IN')}` : '—', cols[3].x + cols[3].w / 2, rowY + 9, 'center');
+    T(bill.billAmount ? formatAmount(bill.billAmount) : '—', cols[4].x + cols[4].w / 2, rowY + 9, 'center');
+
+    // Bottom border
+    L(m, rowY + 22, c, rowY + 22, 220);
+    y = rowY + 28;
+
+    // ── AMOUNT SUMMARY ────────────────────────────────────────────────
+    if (bill.billAmount) {
+      const boxX = c - 65;
+      const boxW = 50;
+      const amtY = y;
+
+      R(boxX, amtY, boxW, 36);
+      doc.setFillColor(245, 247, 250);
+      doc.rect(boxX, amtY, boxW, 7, 'F');
+      C(25, 55, 109);
+      B(8);
+      T('AMOUNT SUMMARY', boxX + boxW / 2, amtY + 5, 'center');
+
+      C(60, 60, 60);
+      N(8);
+      T('Subtotal:', boxX + 3, amtY + 13);
+      C(40, 40, 40);
+      T(formatAmount(bill.billAmount), boxX + boxW - 3, amtY + 13, 'right');
+
+      C(60, 60, 60);
+      N(8);
+      T('Tax (0%):', boxX + 3, amtY + 20);
+      C(40, 40, 40);
+      T(formatAmount(0), boxX + boxW - 3, amtY + 20, 'right');
+
+      L(boxX + 5, amtY + 24, boxX + boxW - 5, amtY + 24, 180);
+
+      C(25, 55, 109);
+      B(10);
+      T('TOTAL:', boxX + 3, amtY + 32);
+      T(formatAmount(bill.billAmount), boxX + boxW - 3, amtY + 32, 'right');
+
+      y = amtY + 42;
     }
-    hr();
 
-    // Footer
+    L(m, y, c, y, 200); y += 8;
+
+    // ── TIMELINE & STATUS ─────────────────────────────────────────────
+    C(25, 55, 109);
+    B(10);
+    T('TIMELINE & STATUS', m, y);
+    y += 7;
+
+    const tlLeft = (label, value) => {
+      C(80, 80, 80); B(9); T(label + ':', m + 3, y);
+      C(50, 50, 50); N(9); T(String(value), m + 38, y);
+      y += 5.5;
+    };
+
+    tlLeft('Planned', bill.plannedDate ? formatDate(bill.plannedDate) : '—');
+    tlLeft('Actual', bill.actualDate ? formatDate(bill.actualDate) : 'Not yet');
+    tlLeft('Status', bill.status === 'completed' ? 'Completed' : 'Pending');
+    if (bill.status === 'completed') {
+      tlLeft('Delay', bill.delay === 0 ? 'On time' : `${bill.delay} day${bill.delay > 1 ? 's' : ''}`);
+      tlLeft('Completed By', bill.updatedBy || '—');
+    }
+
     y += 4;
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text('This is a system-generated bill.', 10, y);
+    L(m, y, c, y, 200); y += 8;
+
+    // ── TERMS & FOOTER ────────────────────────────────────────────────
+    C(25, 55, 109);
+    B(10);
+    T('TERMS & CONDITIONS', m, y);
+    y += 7;
+    C(100, 100, 100);
+    N(8);
+    T('1. Payment is due within 30 days from the invoice date.', m, y); y += 5;
+    T('2. This is a system-generated invoice and is valid without a physical signature.', m, y); y += 5;
+    T('3. For any queries regarding this invoice, please contact the procurement department.', m, y); y += 8;
+
+    L(m, y, c, y, 200); y += 5;
+
+    C(150, 150, 150);
+    N(7);
+    T('Thank you for your business!', m, y);
+    T(`Generated: ${new Date().toLocaleString('en-IN')}`, c, y, 'right');
+    y += 4;
+    T(`Page 1/1`, c, y, 'right');
 
     doc.save(`Bill_${bill.poNumber}.pdf`);
   };
@@ -897,22 +515,24 @@ export function CreateBillPage() {
             </div>
           </div>
 
-          {/* Right: status tabs */}
-          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
-                  activeTab === tab.key
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab.label}
-                <span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
-              </button>
-            ))}
+          {/* Right: status tabs + add button */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                    activeTab === tab.key
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab.label}
+                  <span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
+                </button>
+              ))}
+            </div>
           </div>
         </CardHeader>
 
@@ -979,7 +599,6 @@ export function CreateBillPage() {
                           >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
-
                           {!bill.billNumber ? (
                             <Button
                               onClick={() => {
@@ -1119,7 +738,7 @@ export function CreateBillPage() {
                           <p className="text-sm font-semibold text-foreground/70">No bills found</p>
                           <p className="text-xs">
                             {bills.length === 0
-                              ? 'Generate purchase orders first — they will appear here automatically.'
+                              ? 'No bills yet. Create a Purchase Order first — bills are generated automatically.'
                               : 'No records match your current filters.'}
                           </p>
                         </div>
@@ -1351,6 +970,7 @@ export function CreateBillPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

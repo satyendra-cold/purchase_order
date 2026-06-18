@@ -4,8 +4,16 @@ import { useToast } from '@/hooks/useToast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +35,7 @@ import {
   CalendarCheck2,
   Eye,
 } from 'lucide-react';
+import { SEED_VENDORS } from '@/utils/seedData';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -68,74 +77,6 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
-const SEED_PAYMENT_PROCESSING = [
-  {
-    poNumber: "4478410003477",
-    vendorName: "Instamart",
-    totalQuantity: 310,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T10:09:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    createdAt: "2026-06-18T10:09:00.000Z"
-  },
-  {
-    poNumber: "14703810002069",
-    vendorName: "Blinkit",
-    totalQuantity: 550,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T10:14:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    createdAt: "2026-06-18T10:14:00.000Z"
-  },
-  {
-    poNumber: "6123510003088",
-    vendorName: "Zepto",
-    totalQuantity: 160,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T10:19:00.000Z",
-    actualDate: "2026-06-18T10:39:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T10:19:00.000Z"
-  },
-  {
-    poNumber: "6120910003120",
-    vendorName: "Instamart",
-    totalQuantity: 240,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T10:24:00.000Z",
-    actualDate: "2026-06-18T10:44:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T10:24:00.000Z"
-  },
-  {
-    poNumber: "28313510000716",
-    vendorName: "Blinkit",
-    totalQuantity: 380,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T10:29:00.000Z",
-    actualDate: "2026-06-18T10:49:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T10:29:00.000Z"
-  }
-];
-
 // ─── Component ──────────────────────────────────────────────────────
 
 export function PaymentProcessingPage() {
@@ -143,7 +84,13 @@ export function PaymentProcessingPage() {
   const { toast } = useToast();
 
   // This stage's records (pushed from ApproveProductPage) — FINAL STAGE
-  const [items, setItems] = useLocalStorage('procureflow_payment_processing', SEED_PAYMENT_PROCESSING);
+  const [items, setItems] = useLocalStorage('procureflow_payment_processing', []);
+
+  // Related workflow data
+  const [bills] = useLocalStorage('procureflow_bills', []);
+  const [purchaseOrders] = useLocalStorage('procureflow_generated_pos', []);
+  const [vendors] = useLocalStorage('procureflow_vendors', SEED_VENDORS);
+  const [locations] = useLocalStorage('procureflow_locations', ['RAIPUR', 'DURG', 'BILASPUR']);
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
@@ -151,20 +98,65 @@ export function PaymentProcessingPage() {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
 
-  // ── Mark as payment processed (FINAL STAGE — no forward push) ─────
-  const handleMarkComplete = (item) => {
+  // Payment Processing form state
+  const [formVendor, setFormVendor] = useState('');
+  const [formPoNumber, setFormPoNumber] = useState('');
+  const [formLocation, setFormLocation] = useState('');
+  const [formLocationArea, setFormLocationArea] = useState('');
+  const [formInitiatedDate, setFormInitiatedDate] = useState('');
+  const [formBillingAmount, setFormBillingAmount] = useState('');
+  const [formOrderDate, setFormOrderDate] = useState('');
+  const [formPaymentCompleted, setFormPaymentCompleted] = useState(true);
+
+  // ── Open modal for processing payment ────────────────────────────
+  const handleOpenProcessPayment = (item) => {
+    const bill = bills.find((b) => b.poNumber === item.poNumber) || {};
+    const po = purchaseOrders.find((p) => p.poNumber === item.poNumber) || {};
+
+    setFormVendor(item.vendorName || po.vendorName || '');
+    setFormPoNumber(item.poNumber || '');
+    setFormLocation(item.location || po.location || '');
+    setFormLocationArea(item.locationArea || item.address || po.address || '');
+    setFormInitiatedDate(item.initiatedDate ? item.initiatedDate.split('T')[0] : new Date().toISOString().split('T')[0]);
+    setFormBillingAmount(item.billAmount !== undefined && item.billAmount !== null ? String(item.billAmount) : (bill.billAmount ? String(bill.billAmount) : ''));
+    setFormOrderDate(item.orderDate ? item.orderDate.split('T')[0] : (po.timestamp ? po.timestamp.split('T')[0] : (item.createdAt ? item.createdAt.split('T')[0] : '')));
+    setFormPaymentCompleted(item.paymentCompleted !== undefined ? item.paymentCompleted : true);
+
+    setConfirmDialog({ open: true, item });
+  };
+
+  // ── Confirm Payment Form Submission ──────────────────────────────────
+  const handleConfirmPaymentSubmit = (e) => {
+    e.preventDefault();
+    const item = confirmDialog.item;
+    if (!item) return;
+
     const now = new Date().toISOString();
     const delay = calcDelayDays(item.plannedDate, now);
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
 
     const updated = items.map((r) =>
       r.poNumber === item.poNumber
-        ? { ...r, actualDate: now, status: 'completed', delay, updatedBy: userName }
+        ? {
+            ...r,
+            vendorName: formVendor,
+            poNumber: formPoNumber,
+            location: formLocation,
+            locationArea: formLocationArea,
+            initiatedDate: formInitiatedDate,
+            billAmount: formBillingAmount ? Number(formBillingAmount) : null,
+            orderDate: formOrderDate,
+            paymentCompleted: formPaymentCompleted,
+            actualDate: now,
+            status: 'completed',
+            delay,
+            updatedBy: userName,
+          }
         : r
     );
     setItems(updated);
 
-    toast(`Payment for ${item.poNumber} processed successfully!`, 'success');
+    toast(`Payment for ${formPoNumber} processed successfully!`, 'success');
     setConfirmDialog({ open: false, item: null });
   };
 
@@ -249,6 +241,7 @@ export function PaymentProcessingPage() {
       {/* Main Table Card */}
       <Card className="border-border bg-card shadow-sm rounded-2xl">
         <CardHeader className="py-4 px-4 md:px-6 border-b border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          {/* Left: search + record count */}
           <div className="flex items-center gap-3">
             <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -261,18 +254,22 @@ export function PaymentProcessingPage() {
             </div>
             <div className="text-xs text-muted-foreground hidden md:inline-block">{filteredItems.length} record(s)</div>
           </div>
-          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
-                  activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab.label}<span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
-              </button>
-            ))}
+
+          {/* Right: status tabs */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                    activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab.label}<span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
+                </button>
+              ))}
+            </div>
           </div>
         </CardHeader>
 
@@ -285,11 +282,12 @@ export function PaymentProcessingPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned Date</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Actual Date</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location Area</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Order Date</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Initiated Date</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Billing Amount</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Payment Completed</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Status</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Delay</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Updated By</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -298,12 +296,22 @@ export function PaymentProcessingPage() {
                     <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
                       <TableCell className="pl-4 md:pl-6 py-4 text-left">
                         <div className="flex items-center gap-1.5">
-                          <Button variant="ghost" size="icon" onClick={() => setDetailDialog({ open: true, item })} className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer" title="View details">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDetailDialog({ open: true, item })}
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
+                            title="View details"
+                          >
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
-                          {item.status === 'pending' && (
-                            <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
-                              <CreditCard className="h-3.5 w-3.5" />Process Payment
+                          {(item.status === 'pending' || (item.status === 'completed' && !item.paymentCompleted)) && (
+                            <Button
+                              onClick={() => handleOpenProcessPayment(item)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                            >
+                              <CreditCard className="h-3.5 w-3.5" />
+                              {item.status === 'completed' ? 'Edit Payment' : 'Process Payment'}
                             </Button>
                           )}
                         </div>
@@ -315,18 +323,37 @@ export function PaymentProcessingPage() {
                           <MapPin className="h-2.5 w-2.5 text-muted-foreground" />{item.location}
                         </span>
                       </TableCell>
+                      <TableCell className="py-4 text-left text-xs sm:text-sm text-foreground">{item.locationArea || item.address || '—'}</TableCell>
                       <TableCell className="py-4 text-left">
                         <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{formatDate(item.plannedDate)}
+                          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{item.orderDate ? formatDate(item.orderDate) : '—'}
                         </span>
                       </TableCell>
                       <TableCell className="py-4 text-left">
-                        {item.actualDate ? (
+                        {item.initiatedDate ? (
                           <span className="text-xs sm:text-sm text-foreground flex items-center gap-1">
-                            <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />{formatDate(item.actualDate)}
+                            <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{formatDate(item.initiatedDate)}
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground italic">Not yet</span>
+                          <span className="text-xs text-muted-foreground italic">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-4 text-left font-medium text-foreground">
+                        {item.billAmount !== null && item.billAmount !== undefined ? `₹${item.billAmount.toLocaleString('en-IN')}` : '—'}
+                      </TableCell>
+                      <TableCell className="py-4 text-left">
+                        {item.status === 'completed' ? (
+                          item.paymentCompleted ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              Yes
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                              No
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">—</span>
                         )}
                       </TableCell>
                       <TableCell className="py-4 text-left">
@@ -340,24 +367,6 @@ export function PaymentProcessingPage() {
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="py-4 text-left">
-                        {item.status === 'completed' ? (
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay)}`}>
-                            <Timer className="h-3 w-3" />{item.delay === 0 ? 'On time' : `${item.delay} day${item.delay > 1 ? 's' : ''}`}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-4 text-left">
-                        {item.updatedBy ? (
-                          <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                            <User className="h-3.5 w-3.5 text-muted-foreground" />{item.updatedBy}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">—</span>
-                        )}
-                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
@@ -369,7 +378,7 @@ export function PaymentProcessingPage() {
                           <p className="text-sm font-semibold text-foreground/70">No payment records</p>
                           <p className="text-xs">
                             {items.length === 0
-                              ? 'Approve products first — they will appear here automatically.'
+                              ? 'No payment records yet. Records will be automatically loaded from the previous stage.'
                               : 'No records match your current filters.'}
                           </p>
                         </div>
@@ -383,48 +392,158 @@ export function PaymentProcessingPage() {
         </CardContent>
       </Card>
 
-      {/* Confirm Dialog */}
+      {/* Confirm/Process Payment Dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[440px] bg-card border-border shadow-xl rounded-2xl p-6">
-          <DialogHeader className="text-left mb-2">
-            <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-              <CreditCard className="h-5 w-5 text-emerald-500" />Confirm Payment Processing
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground mt-1">
-              This will finalize the payment for this purchase order.
-            </DialogDescription>
-          </DialogHeader>
-          {confirmDialog.item && (
-            <div className="space-y-3 py-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">PO Number</span>
-                <span className="font-semibold text-primary">{confirmDialog.item.poNumber}</span>
+        <DialogContent className="sm:max-w-[550px] bg-card border-border shadow-xl rounded-2xl p-6 max-h-[95vh] overflow-y-auto">
+          <form onSubmit={handleConfirmPaymentSubmit}>
+            <DialogHeader className="text-left mb-4">
+              <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-primary" />Process Payment
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-1">
+                Enter payment details to finalize this purchase order's payment.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4 py-2">
+              {/* Vendor Selection */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="vendor" className="text-xs font-semibold text-muted-foreground pl-0.5">
+                  Vendor Selection*
+                </Label>
+                <Select value={formVendor} onValueChange={setFormVendor}>
+                  <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-10">
+                    <SelectValue placeholder="Select Vendor" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {vendors.map((v) => (
+                      <SelectItem key={v.id || v.name} value={v.name} className="text-xs focus:bg-accent cursor-pointer">
+                        {v.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Vendor</span>
-                <span className="font-medium">{confirmDialog.item.vendorName}</span>
+
+              {/* PO Number */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="poNumber" className="text-xs font-semibold text-muted-foreground pl-0.5">
+                  PO Number*
+                </Label>
+                <Input
+                  id="poNumber"
+                  value={formPoNumber}
+                  readOnly
+                  placeholder="PO Number"
+                  className="rounded-xl bg-neutral-100 dark:bg-neutral-800 border-input cursor-not-allowed"
+                  required
+                />
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Planned Date</span>
-                <span className="font-medium">{formatDate(confirmDialog.item.plannedDate)}</span>
+
+              {/* Location */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="location" className="text-xs font-semibold text-muted-foreground pl-0.5">
+                  Location*
+                </Label>
+                <Select value={formLocation} onValueChange={setFormLocation}>
+                  <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-10">
+                    <SelectValue placeholder="Select Location" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {locations.map((loc) => (
+                      <SelectItem key={loc} value={loc} className="text-xs focus:bg-accent cursor-pointer">
+                        {loc}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Processed By</span>
-                <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
+
+              {/* Location Area */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="locationArea" className="text-xs font-semibold text-muted-foreground pl-0.5">
+                  Location Area*
+                </Label>
+                <Input
+                  id="locationArea"
+                  value={formLocationArea}
+                  onChange={(e) => setFormLocationArea(e.target.value)}
+                  placeholder="Location Area / Address"
+                  className="rounded-xl bg-background border-input"
+                  required
+                />
               </div>
-              <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5" />This action cannot be undone. The payment will be finalized.
-                </p>
+
+              {/* Order Date */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="orderDate" className="text-xs font-semibold text-muted-foreground pl-0.5">
+                  Order Date*
+                </Label>
+                <Input
+                  id="orderDate"
+                  type="date"
+                  value={formOrderDate}
+                  onChange={(e) => setFormOrderDate(e.target.value)}
+                  className="rounded-xl bg-background border-input"
+                  required
+                />
+              </div>
+
+              {/* Initiated Date */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="initiatedDate" className="text-xs font-semibold text-muted-foreground pl-0.5">
+                  Initiated Date*
+                </Label>
+                <Input
+                  id="initiatedDate"
+                  type="date"
+                  value={formInitiatedDate}
+                  onChange={(e) => setFormInitiatedDate(e.target.value)}
+                  className="rounded-xl bg-background border-input"
+                  required
+                />
+              </div>
+
+              {/* Billing Amount */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="billingAmount" className="text-xs font-semibold text-muted-foreground pl-0.5">
+                  Billing Amount (INR)*
+                </Label>
+                <Input
+                  id="billingAmount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formBillingAmount}
+                  onChange={(e) => setFormBillingAmount(e.target.value)}
+                  placeholder="Enter billing amount"
+                  className="rounded-xl bg-background border-input"
+                  required
+                />
+              </div>
+
+              {/* Payment Completed Checkbox */}
+              <div className="flex items-center space-x-2.5 pt-7 text-left pl-0.5">
+                <input
+                  id="paymentCompleted"
+                  type="checkbox"
+                  checked={formPaymentCompleted}
+                  onChange={(e) => setFormPaymentCompleted(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary cursor-pointer"
+                />
+                <Label htmlFor="paymentCompleted" className="text-xs font-semibold text-foreground cursor-pointer select-none">
+                  Payment Completed
+                </Label>
               </div>
             </div>
-          )}
-          <DialogFooter className="mt-4 gap-2">
-            <Button variant="outline" onClick={() => setConfirmDialog({ open: false, item: null })} className="border-border hover:bg-accent rounded-xl cursor-pointer">Cancel</Button>
-            <Button onClick={() => confirmDialog.item && handleMarkComplete(confirmDialog.item)} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5">
-              <CreditCard className="h-4 w-4" />Confirm Payment
-            </Button>
-          </DialogFooter>
+
+            <DialogFooter className="mt-6 gap-2">
+              <Button type="button" variant="outline" onClick={() => setConfirmDialog({ open: false, item: null })} className="border-border hover:bg-accent rounded-xl cursor-pointer">Cancel</Button>
+              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5">
+                <CreditCard className="h-4 w-4" />Confirm Payment
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -444,9 +563,13 @@ export function PaymentProcessingPage() {
                 { label: 'Vendor', value: detailDialog.item.vendorName },
                 { label: 'Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
                 { label: 'Location', value: detailDialog.item.location },
-                { label: 'Address', value: detailDialog.item.address },
+                { label: 'Location Area', value: detailDialog.item.locationArea || detailDialog.item.address || '—' },
+                { label: 'Order Date', value: detailDialog.item.orderDate ? formatDate(detailDialog.item.orderDate) : '—' },
+                { label: 'Initiated Date', value: detailDialog.item.initiatedDate ? formatDate(detailDialog.item.initiatedDate) : '—' },
+                { label: 'Billing Amount', value: detailDialog.item.billAmount !== null && detailDialog.item.billAmount !== undefined ? `₹${detailDialog.item.billAmount.toLocaleString('en-IN')}` : '—' },
+                { label: 'Payment Completed', value: detailDialog.item.status === 'completed' ? (detailDialog.item.paymentCompleted ? 'Yes' : 'No') : '—' },
                 { label: 'Planned Date', value: formatDate(detailDialog.item.plannedDate) },
-                { label: 'Actual Date', value: detailDialog.item.actualDate ? formatDate(detailDialog.item.actualDate) : 'Not yet' },
+                { label: 'Actual Date (Payment Finalized)', value: detailDialog.item.actualDate ? formatDate(detailDialog.item.actualDate) : 'Not yet' },
                 { label: 'Status', value: detailDialog.item.status === 'completed' ? 'Processed' : 'Pending' },
                 { label: 'Delay', value: detailDialog.item.status === 'completed' ? (detailDialog.item.delay === 0 ? 'On time' : `${detailDialog.item.delay} day(s)`) : '—' },
                 { label: 'Updated By', value: detailDialog.item.updatedBy || '—' },
@@ -463,6 +586,7 @@ export function PaymentProcessingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

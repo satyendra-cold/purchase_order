@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/useToast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -70,204 +71,6 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
-const SEED_READY_PRODUCTS = [
-  {
-    poNumber: "6365710002530",
-    vendorName: "Zepto",
-    totalQuantity: 220,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:00:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    createdAt: "2026-06-18T07:00:00.000Z"
-  },
-  {
-    poNumber: "6770710002344",
-    vendorName: "Instamart",
-    totalQuantity: 400,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T07:05:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    createdAt: "2026-06-18T07:05:00.000Z"
-  },
-  {
-    poNumber: "4756910003396",
-    vendorName: "Blinkit",
-    totalQuantity: 290,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T07:10:00.000Z",
-    actualDate: "2026-06-18T07:40:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:10:00.000Z"
-  },
-  {
-    poNumber: "6120910003105",
-    vendorName: "Zepto",
-    totalQuantity: 150,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T07:15:00.000Z",
-    actualDate: "2026-06-18T07:45:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:15:00.000Z"
-  },
-  {
-    poNumber: "4478410003458",
-    vendorName: "Instamart",
-    totalQuantity: 500,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:20:00.000Z",
-    actualDate: "2026-06-18T07:50:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:20:00.000Z"
-  },
-  {
-    poNumber: "17530310001615",
-    vendorName: "Blinkit",
-    totalQuantity: 320,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T07:25:00.000Z",
-    actualDate: "2026-06-18T07:55:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:25:00.000Z"
-  },
-  {
-    poNumber: "6123510003070",
-    vendorName: "Zepto",
-    totalQuantity: 130,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:30:00.000Z",
-    actualDate: "2026-06-18T08:00:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:30:00.000Z"
-  },
-  {
-    poNumber: "28313510000700",
-    vendorName: "Instamart",
-    totalQuantity: 210,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T07:35:00.000Z",
-    actualDate: "2026-06-18T08:05:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:35:00.000Z"
-  },
-  {
-    poNumber: "19242410001560",
-    vendorName: "Blinkit",
-    totalQuantity: 450,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T07:40:00.000Z",
-    actualDate: "2026-06-18T08:10:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:40:00.000Z"
-  },
-  {
-    poNumber: "22223310001089",
-    vendorName: "Zepto",
-    totalQuantity: 270,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:45:00.000Z",
-    actualDate: "2026-06-18T08:15:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:45:00.000Z"
-  },
-  {
-    poNumber: "4478410003477",
-    vendorName: "Instamart",
-    totalQuantity: 310,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T07:50:00.000Z",
-    actualDate: "2026-06-18T08:20:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:50:00.000Z"
-  },
-  {
-    poNumber: "14703810002069",
-    vendorName: "Blinkit",
-    totalQuantity: 550,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T07:55:00.000Z",
-    actualDate: "2026-06-18T08:25:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T07:55:00.000Z"
-  },
-  {
-    poNumber: "6123510003088",
-    vendorName: "Zepto",
-    totalQuantity: 160,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T08:00:00.000Z",
-    actualDate: "2026-06-18T08:30:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:00:00.000Z"
-  },
-  {
-    poNumber: "6120910003120",
-    vendorName: "Instamart",
-    totalQuantity: 240,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T08:05:00.000Z",
-    actualDate: "2026-06-18T08:35:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:05:00.000Z"
-  },
-  {
-    poNumber: "28313510000716",
-    vendorName: "Blinkit",
-    totalQuantity: 380,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T08:10:00.000Z",
-    actualDate: "2026-06-18T08:40:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T08:10:00.000Z"
-  }
-];
-
 // ─── Component ──────────────────────────────────────────────────────
 
 export function ReadyProductPage() {
@@ -275,7 +78,7 @@ export function ReadyProductPage() {
   const { toast } = useToast();
 
   // Ready product records (pushed from CreateBillPage when bill is completed)
-  const [readyProducts, setReadyProducts] = useLocalStorage('procureflow_ready_products', SEED_READY_PRODUCTS);
+  const [readyProducts, setReadyProducts] = useLocalStorage('procureflow_ready_products', []);
 
   // Next stage storage — push completed items here
   const [checkTransport, setCheckTransport] = useLocalStorage('procureflow_check_transport', []);
@@ -285,16 +88,18 @@ export function ReadyProductPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
+  const [actualDateInput, setActualDateInput] = useState('');
 
   // ── Mark product as ready ──────────────────────────────────────────
   const handleMarkReady = (item) => {
-    const now = new Date().toISOString();
-    const delay = calcDelayDays(item.plannedDate, now);
+    const selectedDate = actualDateInput || new Date().toISOString();
+    const selectedDateObj = new Date(selectedDate);
+    const delay = calcDelayDays(item.plannedDate, selectedDateObj.toISOString());
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
 
     const updated = readyProducts.map((r) =>
       r.poNumber === item.poNumber
-        ? { ...r, actualDate: now, status: 'completed', delay, updatedBy: userName }
+        ? { ...r, actualDate: selectedDateObj.toISOString(), status: 'completed', delay, updatedBy: userName }
         : r
     );
     setReadyProducts(updated);
@@ -308,7 +113,7 @@ export function ReadyProductPage() {
         totalQuantity: item.totalQuantity,
         location: item.location,
         address: item.address,
-        plannedDate: now,
+        plannedDate: selectedDateObj.toISOString(),
         actualDate: null,
         status: 'pending',
         delay: 0,
@@ -427,22 +232,24 @@ export function ReadyProductPage() {
             </div>
           </div>
 
-          {/* Right: status tabs */}
-          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
-                  activeTab === tab.key
-                    ? 'bg-card text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab.label}
-                <span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
-              </button>
-            ))}
+          {/* Right: status tabs + add button */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                    activeTab === tab.key
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab.label}
+                  <span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
+                </button>
+              ))}
+            </div>
           </div>
         </CardHeader>
 
@@ -487,7 +294,7 @@ export function ReadyProductPage() {
                       key={item.poNumber}
                       className="hover:bg-accent/40 border-b border-border transition-colors"
                     >
-                      {/* PO Number */}
+                      {/* Actions */}
                       <TableCell className="pl-4 md:pl-6 py-4 text-left">
                         <div className="flex items-center gap-1.5">
                           <Button
@@ -502,7 +309,10 @@ export function ReadyProductPage() {
 
                           {item.status === 'pending' && (
                             <Button
-                              onClick={() => setConfirmDialog({ open: true, item })}
+                              onClick={() => {
+                                setActualDateInput(new Date().toISOString().split('T')[0]);
+                                setConfirmDialog({ open: true, item });
+                              }}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
                             >
                               <PackageCheck className="h-3.5 w-3.5" />
@@ -604,7 +414,7 @@ export function ReadyProductPage() {
                           <p className="text-sm font-semibold text-foreground/70">No ready products</p>
                           <p className="text-xs">
                             {readyProducts.length === 0
-                              ? 'Complete bills in the Create Bill page first — they will appear here automatically.'
+                              ? 'No ready products yet. Complete a bill in the Create Bill page first.'
                               : 'No records match your current filters.'}
                           </p>
                         </div>
@@ -644,6 +454,16 @@ export function ReadyProductPage() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Planned Date</span>
                 <span className="font-medium">{formatDate(confirmDialog.item.plannedDate)}</span>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Actual Date*</Label>
+                <Input
+                  type="date"
+                  value={actualDateInput}
+                  onChange={(e) => setActualDateInput(e.target.value)}
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                  required
+                />
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Processed By</span>
@@ -723,6 +543,7 @@ export function ReadyProductPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }

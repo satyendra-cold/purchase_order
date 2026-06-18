@@ -68,100 +68,6 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
-const SEED_APPROVE_PRODUCT = [
-  {
-    poNumber: "19242410001560",
-    vendorName: "Blinkit",
-    totalQuantity: 450,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T09:35:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    createdAt: "2026-06-18T09:35:00.000Z"
-  },
-  {
-    poNumber: "22223310001089",
-    vendorName: "Zepto",
-    totalQuantity: 270,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T09:40:00.000Z",
-    actualDate: null,
-    status: "pending",
-    delay: 0,
-    updatedBy: "",
-    createdAt: "2026-06-18T09:40:00.000Z"
-  },
-  {
-    poNumber: "4478410003477",
-    vendorName: "Instamart",
-    totalQuantity: 310,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T09:45:00.000Z",
-    actualDate: "2026-06-18T10:09:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T09:45:00.000Z"
-  },
-  {
-    poNumber: "14703810002069",
-    vendorName: "Blinkit",
-    totalQuantity: 550,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T09:50:00.000Z",
-    actualDate: "2026-06-18T10:14:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T09:50:00.000Z"
-  },
-  {
-    poNumber: "6123510003088",
-    vendorName: "Zepto",
-    totalQuantity: 160,
-    location: "DURG",
-    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
-    plannedDate: "2026-06-18T09:55:00.000Z",
-    actualDate: "2026-06-18T10:19:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T09:55:00.000Z"
-  },
-  {
-    poNumber: "6120910003120",
-    vendorName: "Instamart",
-    totalQuantity: 240,
-    location: "BILASPUR",
-    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
-    plannedDate: "2026-06-18T10:00:00.000Z",
-    actualDate: "2026-06-18T10:24:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T10:00:00.000Z"
-  },
-  {
-    poNumber: "28313510000716",
-    vendorName: "Blinkit",
-    totalQuantity: 380,
-    location: "RAIPUR",
-    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
-    plannedDate: "2026-06-18T10:05:00.000Z",
-    actualDate: "2026-06-18T10:29:00.000Z",
-    status: "completed",
-    delay: 0,
-    updatedBy: "Admin User",
-    createdAt: "2026-06-18T10:05:00.000Z"
-  }
-];
-
 // ─── Component ──────────────────────────────────────────────────────
 
 export function ApproveProductPage() {
@@ -169,7 +75,7 @@ export function ApproveProductPage() {
   const { toast } = useToast();
 
   // This stage's records (pushed from SupplyCheckPage)
-  const [items, setItems] = useLocalStorage('procureflow_approve_product', SEED_APPROVE_PRODUCT);
+  const [items, setItems] = useLocalStorage('procureflow_approve_product', []);
 
   // Next stage storage — push completed items here
   const [nextStage, setNextStage] = useLocalStorage('procureflow_payment_processing', []);
@@ -297,6 +203,7 @@ export function ApproveProductPage() {
       {/* Main Table Card */}
       <Card className="border-border bg-card shadow-sm rounded-2xl">
         <CardHeader className="py-4 px-4 md:px-6 border-b border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+          {/* Left: search + record count */}
           <div className="flex items-center gap-3">
             <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -309,18 +216,22 @@ export function ApproveProductPage() {
             </div>
             <div className="text-xs text-muted-foreground hidden md:inline-block">{filteredItems.length} record(s)</div>
           </div>
-          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
-            {TABS.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
-                  activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab.label}<span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
-              </button>
-            ))}
+
+          {/* Right: status tabs */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                    activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab.label}<span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
+                </button>
+              ))}
+            </div>
           </div>
         </CardHeader>
 
@@ -417,7 +328,7 @@ export function ApproveProductPage() {
                           <p className="text-sm font-semibold text-foreground/70">No approval records</p>
                           <p className="text-xs">
                             {items.length === 0
-                              ? 'Verify supplies in Supply Check first — they will appear here automatically.'
+                              ? 'No approval records yet. Records will be automatically loaded from the previous stage.'
                               : 'No records match your current filters.'}
                           </p>
                         </div>
