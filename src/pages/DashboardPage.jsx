@@ -5,6 +5,17 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import {
+  SEED_POS,
+  SEED_VENDORS,
+  SEED_BILLS,
+  SEED_READY_PRODUCTS,
+  SEED_CHECK_TRANSPORT,
+  SEED_PRINT_INVOICE,
+  SEED_SUPPLY_CHECK,
+  SEED_APPROVE_PRODUCT,
+  SEED_PAYMENT_PROCESSING
+} from '@/utils/seedData';
 import { 
   Receipt, 
   ShoppingBag, 
@@ -95,30 +106,41 @@ export function DashboardPage() {
   const { users } = useAuth();
 
   // ─── Local Storage State Lists ─────────────────────────────────────
-  const [purchaseOrders] = useLocalStorage('procureflow_generated_pos', []);
-  const [bills] = useLocalStorage('procureflow_bills', []);
-  const [readyProducts] = useLocalStorage('procureflow_ready_products', []);
-  const [checkTransport] = useLocalStorage('procureflow_check_transport', []);
-  const [printInvoice] = useLocalStorage('procureflow_print_invoice', []);
-  const [supplyCheck] = useLocalStorage('procureflow_supply_check', []);
-  const [approveProduct] = useLocalStorage('procureflow_approve_product', []);
-  const [paymentProcessing] = useLocalStorage('procureflow_payment_processing', []);
-  const [vendorsList] = useLocalStorage('procureflow_vendors', []);
+  const [purchaseOrders] = useLocalStorage('procureflow_generated_pos', SEED_POS);
+  const [bills] = useLocalStorage('procureflow_bills', SEED_BILLS);
+  const [readyProducts] = useLocalStorage('procureflow_ready_products', SEED_READY_PRODUCTS);
+  const [checkTransport] = useLocalStorage('procureflow_check_transport', SEED_CHECK_TRANSPORT);
+  const [printInvoice] = useLocalStorage('procureflow_print_invoice', SEED_PRINT_INVOICE);
+  const [supplyCheck] = useLocalStorage('procureflow_supply_check', SEED_SUPPLY_CHECK);
+  const [approveProduct] = useLocalStorage('procureflow_approve_product', SEED_APPROVE_PRODUCT);
+  const [paymentProcessing] = useLocalStorage('procureflow_payment_processing', SEED_PAYMENT_PROCESSING);
+  const [vendorsList] = useLocalStorage('procureflow_vendors', SEED_VENDORS);
   
+  // Fall back to seed data when localStorage is empty
+  const displayPOs = purchaseOrders.length > 0 ? purchaseOrders : SEED_POS;
+  const displayBills = bills.length > 0 ? bills : SEED_BILLS;
+  const displayReadyProducts = readyProducts.length > 0 ? readyProducts : SEED_READY_PRODUCTS;
+  const displayCheckTransport = checkTransport.length > 0 ? checkTransport : SEED_CHECK_TRANSPORT;
+  const displayPrintInvoice = printInvoice.length > 0 ? printInvoice : SEED_PRINT_INVOICE;
+  const displaySupplyCheck = supplyCheck.length > 0 ? supplyCheck : SEED_SUPPLY_CHECK;
+  const displayApproveProduct = approveProduct.length > 0 ? approveProduct : SEED_APPROVE_PRODUCT;
+  const displayPaymentProcessing = paymentProcessing.length > 0 ? paymentProcessing : SEED_PAYMENT_PROCESSING;
+  const displayVendorsList = vendorsList.length > 0 ? vendorsList : SEED_VENDORS;
+
   // Interactive chart state
   const [hoveredVendor, setHoveredVendor] = useState(null);
   const [hoveredLocationIdx, setHoveredLocationIdx] = useState(null);
 
   // ─── Combine Stage States ──────────────────────────────────────────
   const stages = useMemo(() => ({
-    paymentProcessing,
-    approveProduct,
-    supplyCheck,
-    printInvoice,
-    checkTransport,
-    readyProducts,
-    bills
-  }), [paymentProcessing, approveProduct, supplyCheck, printInvoice, checkTransport, readyProducts, bills]);
+    paymentProcessing: displayPaymentProcessing,
+    approveProduct: displayApproveProduct,
+    supplyCheck: displaySupplyCheck,
+    printInvoice: displayPrintInvoice,
+    checkTransport: displayCheckTransport,
+    readyProducts: displayReadyProducts,
+    bills: displayBills
+  }), [displayPaymentProcessing, displayApproveProduct, displaySupplyCheck, displayPrintInvoice, displayCheckTransport, displayReadyProducts, displayBills]);
 
   // Resolve Stage helper
   const getStageDetails = useMemo(() => {
@@ -126,28 +148,28 @@ export function DashboardPage() {
   }, [stages]);
 
   // ─── KPI Metrics ───────────────────────────────────────────────────
-  const totalPOs = purchaseOrders.length;
+  const totalPOs = displayPOs.length;
   const totalQuantity = useMemo(() => {
-    return purchaseOrders.reduce((sum, po) => sum + (po.totalQuantity || 0), 0);
-  }, [purchaseOrders]);
+    return displayPOs.reduce((sum, po) => sum + (po.totalQuantity || 0), 0);
+  }, [displayPOs]);
 
   const activePipelineItems = useMemo(() => {
-    return purchaseOrders.filter(po => {
+    return displayPOs.filter(po => {
       const st = getStageDetails(po.poNumber);
       return st.name !== 'Completed';
     }).length;
-  }, [purchaseOrders, getStageDetails]);
+  }, [displayPOs, getStageDetails]);
 
   // Aggregate completion efficiency and average cycle delay across all steps
   const analyticsEfficiency = useMemo(() => {
     const allWorkflowItems = [
-      ...bills,
-      ...readyProducts,
-      ...checkTransport,
-      ...printInvoice,
-      ...supplyCheck,
-      ...approveProduct,
-      ...paymentProcessing
+      ...displayBills,
+      ...displayReadyProducts,
+      ...displayCheckTransport,
+      ...displayPrintInvoice,
+      ...displaySupplyCheck,
+      ...displayApproveProduct,
+      ...displayPaymentProcessing
     ];
     
     const completedTasks = allWorkflowItems.filter(item => item.status === 'completed');
@@ -164,7 +186,7 @@ export function DashboardPage() {
       : 0.0;
 
     return { onTimePercentage, avgDelayDays, totalCompletions };
-  }, [bills, readyProducts, checkTransport, printInvoice, supplyCheck, approveProduct, paymentProcessing]);
+  }, [displayBills, displayReadyProducts, displayCheckTransport, displayPrintInvoice, displaySupplyCheck, displayApproveProduct, displayPaymentProcessing]);
 
   // ─── Funnel Pipeline Stage Counts ──────────────────────────────────
   const funnelData = useMemo(() => {
@@ -196,19 +218,19 @@ export function DashboardPage() {
     });
 
     return pipelineStages;
-  }, [purchaseOrders, getStageDetails]);
+  }, [displayPOs, getStageDetails]);
 
   // ─── Vendor Quantity Analysis Data ─────────────────────────────────
   const vendorChartData = useMemo(() => {
     const qtyMap = {};
     const countMap = {};
 
-    vendorsList.forEach(v => {
+    displayVendorsList.forEach(v => {
       qtyMap[v.name] = 0;
       countMap[v.name] = 0;
     });
 
-    purchaseOrders.forEach(po => {
+    displayPOs.forEach(po => {
       qtyMap[po.vendorName] = (qtyMap[po.vendorName] || 0) + (po.totalQuantity || 0);
       countMap[po.vendorName] = (countMap[po.vendorName] || 0) + 1;
     });
@@ -217,13 +239,13 @@ export function DashboardPage() {
       name,
       quantity: qtyMap[name] || 0,
       orders: countMap[name] || 0
-    })).filter(item => item.orders > 0 || vendorsList.some(v => v.name === item.name));
-  }, [purchaseOrders, vendorsList]);
+    })).filter(item => item.orders > 0 || displayVendorsList.some(v => v.name === item.name));
+  }, [displayPOs, displayVendorsList]);
 
   // ─── Location Distribution Data ────────────────────────────────────
   const locationChartData = useMemo(() => {
     const locMap = {};
-    purchaseOrders.forEach(po => {
+    displayPOs.forEach(po => {
       const loc = po.location || 'UNKNOWN';
       locMap[loc] = (locMap[loc] || 0) + (po.totalQuantity || 0);
     });
@@ -237,11 +259,11 @@ export function DashboardPage() {
       percentage: totalLocQty > 0 ? Math.round((locMap[name] / totalLocQty) * 100) : 0,
       color: colors[idx % colors.length]
     }));
-  }, [purchaseOrders]);
+  }, [displayPOs]);
 
   // ─── Detailed Tracker List ─────────────────────────────────────────
   const poTrackerList = useMemo(() => {
-    return purchaseOrders.map(po => {
+    return displayPOs.map(po => {
       const currentStage = getStageDetails(po.poNumber);
       return {
         ...po,
@@ -249,7 +271,7 @@ export function DashboardPage() {
         badgeStyle: currentStage.color
       };
     }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
-  }, [purchaseOrders, getStageDetails]);
+  }, [displayPOs, getStageDetails]);
 
   // Format Date Helper
   const formatTimestamp = (isoString) => {

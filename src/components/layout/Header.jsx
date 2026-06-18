@@ -12,11 +12,27 @@ import {
 
 import { LogOut, ChevronRight } from 'lucide-react';
 
+const LABEL_MAP = {
+  'dashboard': 'Dashboard',
+  'settings': 'Settings',
+  'generate-po': 'Generate PO',
+  'create-bill': 'Create Bill',
+  'ready-product': 'Ready Product',
+  'check-transport': 'Check Transport',
+  'print-invoice': 'Print Invoice',
+  'supply-check': 'Supply Check',
+  'approve-product': 'Approve Product',
+  'payment-processing': 'Payment Processing',
+};
+
+function formatLabel(segment) {
+  return LABEL_MAP[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
+}
+
 export function Header() {
   const { currentUser, logout } = useAuth();
   const location = useLocation();
 
-  // Helper to generate breadcrumbs from route path
   const getBreadcrumbs = () => {
     const path = location.pathname;
     if (path === '/') return [{ label: 'Dashboard', path: '/', active: true }];
@@ -26,9 +42,8 @@ export function Header() {
       { label: 'ProcureFlow', path: '/', active: false },
       ...paths.map((p, index) => {
         const url = `/${paths.slice(0, index + 1).join('/')}`;
-        const label = p.charAt(0).toUpperCase() + p.slice(1);
         return {
-          label,
+          label: formatLabel(p),
           path: url,
           active: index === paths.length - 1
         };
@@ -42,18 +57,18 @@ export function Header() {
     : 'U';
 
   return (
-    <header className="h-16 w-full border-b border-border bg-background/70 backdrop-blur-md px-4 md:px-6 flex items-center justify-between sticky top-0 z-40">
-      {/* Breadcrumbs - Simplified on Mobile */}
-      <div className="flex items-center gap-1.5 text-sm">
+    <header className="h-16 w-full border-b border-border bg-background/70 backdrop-blur-md px-4 md:px-6 flex items-center justify-between sticky top-0 z-40 overflow-hidden">
+      {/* Breadcrumbs */}
+      <div className="flex items-center gap-1.5 text-sm truncate">
         {breadcrumbs.map((crumb, idx) => (
-          <React.Fragment key={crumb.path}>
+          <React.Fragment key={`${crumb.path}-${idx}`}>
             {idx > 0 && <ChevronRight className="hidden sm:inline h-3.5 w-3.5 text-muted-foreground" />}
             {crumb.active ? (
-              <span className="font-medium text-foreground">{crumb.label}</span>
+              <span className="font-medium text-foreground whitespace-nowrap">{crumb.label}</span>
             ) : (
               <Link 
                 to={crumb.path} 
-                className="hidden sm:inline text-muted-foreground hover:text-foreground transition-colors"
+                className="hidden sm:inline text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
               >
                 {crumb.label}
               </Link>
@@ -63,9 +78,7 @@ export function Header() {
       </div>
 
       {/* User Actions & Profile */}
-      <div className="flex items-center gap-3 md:gap-4">
-
-
+      <div className="flex items-center gap-3 md:gap-4 shrink-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2.5 p-1 rounded-full hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring transition-all text-left cursor-pointer">
