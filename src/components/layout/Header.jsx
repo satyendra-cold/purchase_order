@@ -10,7 +10,7 @@ import {
   DropdownMenuItem 
 } from '@/components/ui/dropdown-menu';
 
-import { LogOut, ChevronRight } from 'lucide-react';
+import { LogOut, ChevronRight, Menu } from 'lucide-react';
 
 const LABEL_MAP = {
   'dashboard': 'Dashboard',
@@ -29,7 +29,7 @@ function formatLabel(segment) {
   return LABEL_MAP[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
 }
 
-export function Header() {
+export function Header({ onToggleSidebar }) {
   const { currentUser, logout } = useAuth();
   const location = useLocation();
 
@@ -58,8 +58,15 @@ export function Header() {
 
   return (
     <header className="h-16 min-h-16 max-h-16 w-full border-b border-border bg-background/70 backdrop-blur-md px-4 md:px-6 flex items-center justify-between sticky top-0 z-40 overflow-hidden shrink-0">
-      {/* Breadcrumbs */}
+      {/* Mobile Hamburger + Breadcrumbs */}
       <div className="flex items-center gap-1.5 text-sm truncate">
+        <button
+          onClick={onToggleSidebar}
+          className="md:hidden p-1.5 -ml-1 mr-1 rounded-lg hover:bg-accent transition-colors cursor-pointer shrink-0"
+          aria-label="Toggle sidebar"
+        >
+          <Menu className="h-5 w-5 text-foreground" />
+        </button>
         {breadcrumbs.map((crumb, idx) => (
           <React.Fragment key={`${crumb.path}-${idx}`}>
             {idx > 0 && <ChevronRight className="hidden sm:inline h-3.5 w-3.5 text-muted-foreground" />}

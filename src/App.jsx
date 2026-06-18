@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider } from '@/features/auth/hooks/useAuth';
 import { ProtectedRoute } from '@/components/shared/ProtectedRoute';
@@ -20,15 +20,17 @@ import { ToastProvider } from '@/hooks/useToast';
 
 // Layout wrapper component that builds the Sidebar + Header + Footer scaffolding
 function AppLayout() {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
       {/* Left Sidebar */}
-      <Sidebar />
+      <Sidebar mobileOpen={mobileSidebarOpen} onClose={() => setMobileSidebarOpen(false)} />
       
       {/* Right Content Area */}
-      <div className="flex-1 flex flex-col overflow-hidden pb-16 md:pb-0">
+      <div className="flex-1 flex flex-col overflow-hidden">
         {/* Top Header */}
-        <Header />
+        <Header onToggleSidebar={() => setMobileSidebarOpen(prev => !prev)} />
         
         {/* Scrollable Page Outlet */}
         <main className="flex-grow overflow-y-auto bg-neutral-50/20 dark:bg-neutral-950/5 flex flex-col justify-between min-h-0">
