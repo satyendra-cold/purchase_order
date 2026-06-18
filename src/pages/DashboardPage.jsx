@@ -20,9 +20,7 @@ import {
   CalendarClock, 
   BarChart3, 
   PieChart, 
-  ArrowRight,
   User,
-  ShieldAlert,
   Clock
 } from 'lucide-react';
 
@@ -275,29 +273,7 @@ export function DashboardPage() {
     }
   };
 
-  // Render blank state if no POs exist
-  if (totalPOs === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-6 max-w-md mx-auto text-center animate-in fade-in duration-300">
-        <div className="p-4 rounded-full bg-primary/10 text-primary">
-          <ShieldAlert className="h-10 w-10" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-xl font-bold text-foreground">No Analytics Data Available</h2>
-          <p className="text-sm text-muted-foreground">
-            The dashboard displays statistics computed from purchase orders. Generate your first purchase order to unlock dashboard analytics.
-          </p>
-        </div>
-        <Button 
-          onClick={() => navigate('/generate-po')}
-          className="bg-primary hover:bg-primary/90 text-primary-foreground gap-2 rounded-xl cursor-pointer shadow-md"
-        >
-          Generate First PO
-          <ArrowRight className="h-4 w-4" />
-        </Button>
-      </div>
-    );
-  }
+
 
   // ─── SVG Donut Angles Calculations ─────────────────────────────────
   let accumulatedPercent = 0;
@@ -641,51 +617,59 @@ export function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {poTrackerList.map((po) => (
-                  <TableRow key={po.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
-                    
-                    {/* PO Number */}
-                    <TableCell className="pl-5 py-3 text-left font-bold text-primary text-xs sm:text-sm">
-                      {po.poNumber}
-                    </TableCell>
+                {poTrackerList.length > 0 ? (
+                  poTrackerList.map((po) => (
+                    <TableRow key={po.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
+                      
+                      {/* PO Number */}
+                      <TableCell className="pl-5 py-3 text-left font-bold text-primary text-xs sm:text-sm">
+                        {po.poNumber}
+                      </TableCell>
 
-                    {/* Vendor Name */}
-                    <TableCell className="py-3 text-left text-xs sm:text-sm font-semibold text-foreground">
-                      {po.vendorName}
-                    </TableCell>
+                      {/* Vendor Name */}
+                      <TableCell className="py-3 text-left text-xs sm:text-sm font-semibold text-foreground">
+                        {po.vendorName}
+                      </TableCell>
 
-                    {/* Total Quantity */}
-                    <TableCell className="py-3 text-left text-xs sm:text-sm font-black text-foreground">
-                      {po.totalQuantity.toLocaleString()}
-                    </TableCell>
+                      {/* Total Quantity */}
+                      <TableCell className="py-3 text-left text-xs sm:text-sm font-black text-foreground">
+                        {po.totalQuantity.toLocaleString()}
+                      </TableCell>
 
-                    {/* Location */}
-                    <TableCell className="py-3 text-left">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
-                        <MapPin className="h-2.5 w-2.5 text-muted-foreground" />
-                        {po.location}
-                      </span>
-                    </TableCell>
+                      {/* Location */}
+                      <TableCell className="py-3 text-left">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
+                          <MapPin className="h-2.5 w-2.5 text-muted-foreground" />
+                          {po.location}
+                        </span>
+                      </TableCell>
 
-                    {/* Created Date */}
-                    <TableCell className="py-3 text-left text-xs text-muted-foreground">
-                      {formatTimestamp(po.timestamp)}
-                    </TableCell>
+                      {/* Created Date */}
+                      <TableCell className="py-3 text-left text-xs text-muted-foreground">
+                        {formatTimestamp(po.timestamp)}
+                      </TableCell>
 
-                    {/* Status badge */}
-                    <TableCell className="py-3 text-left">
-                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${po.badgeStyle}`}>
-                        {po.stage === 'Completed' ? (
-                          <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-500" />
-                        ) : (
-                          <Clock className="h-3 w-3 mr-1" />
-                        )}
-                        {po.stage}
-                      </span>
-                    </TableCell>
+                      {/* Status badge */}
+                      <TableCell className="py-3 text-left">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold border ${po.badgeStyle}`}>
+                          {po.stage === 'Completed' ? (
+                            <CheckCircle2 className="h-3 w-3 mr-1 text-emerald-500" />
+                          ) : (
+                            <Clock className="h-3 w-3 mr-1" />
+                          )}
+                          {po.stage}
+                        </span>
+                      </TableCell>
 
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-8 text-center text-xs text-muted-foreground italic">
+                      No purchase orders recorded yet. Go to Generate PO to create one.
+                    </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </div>
