@@ -57,7 +57,7 @@ export function Header() {
     : 'U';
 
   return (
-    <header className="h-16 w-full border-b border-border bg-background/70 backdrop-blur-md px-4 md:px-6 flex items-center justify-between sticky top-0 z-40 overflow-hidden">
+    <header className="h-16 min-h-16 max-h-16 w-full border-b border-border bg-background/70 backdrop-blur-md px-4 md:px-6 flex items-center justify-between sticky top-0 z-40 overflow-hidden shrink-0">
       {/* Breadcrumbs */}
       <div className="flex items-center gap-1.5 text-sm truncate">
         {breadcrumbs.map((crumb, idx) => (
