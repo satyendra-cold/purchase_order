@@ -2,12 +2,12 @@
 export const INITIAL_USERS = [
   {
     id: '1',
-    username: 'admin',
-    password: 'password',
     name: 'Admin User',
+    username: 'admin',
+    password: 'admin123',
     email: 'admin@procureflow.com',
+    phone: '8978987876',
     role: 'ADMIN',
-    phone: '+1 (555) 019-2834',
     status: 'Active',
     dateJoined: '2026-01-15',
     pageAccess: [
@@ -25,39 +25,54 @@ export const INITIAL_USERS = [
   },
   {
     id: '2',
-    username: 'manager',
-    password: 'password',
-    name: 'Jane Doe',
-    email: 'jane.doe@procureflow.com',
-    role: 'USER',
-    phone: '+1 (555) 024-9182',
+    name: 'User One',
+    username: 'userone',
+    password: 'userone',
+    email: 'userone@procureflow.com',
+    phone: '9876545678',
+    role: 'ADMIN',
     status: 'Active',
     dateJoined: '2026-02-10',
-    pageAccess: ['Dashboard']
+    pageAccess: [
+      'Dashboard'
+    ]
   },
   {
     id: '3',
-    username: 'buyer',
-    password: 'password',
     name: 'John Smith',
+    username: 'johnsmith',
+    password: 'password',
     email: 'john.smith@procureflow.com',
+    phone: '8778586789',
     role: 'USER',
-    phone: '+1 (555) 039-4821',
     status: 'Active',
     dateJoined: '2026-03-05',
-    pageAccess: ['Dashboard']
+    pageAccess: [
+      'Dashboard',
+      'Settings',
+      'Ready Product',
+      'Supply Check',
+      'Print Invoice',
+      'Create Bill',
+      'Payment Processing',
+      'Approve Product',
+      'Check Transport',
+      'Generate PO'
+    ]
   },
   {
     id: '4',
+    name: 'Sarah Jenkins',
     username: 'finance',
     password: 'password',
-    name: 'Sarah Jenkins',
     email: 'sarah.j@procureflow.com',
-    role: 'USER',
     phone: '+1 (555) 041-8930',
-    status: 'Inactive',
+    role: 'USER',
+    status: 'Active',
     dateJoined: '2026-04-12',
-    pageAccess: ['Dashboard']
+    pageAccess: [
+      'Dashboard'
+    ]
   }
 ];
 

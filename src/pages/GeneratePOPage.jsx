@@ -40,35 +40,40 @@ import {
 
 const SEED_POS = [
   {
-    poNumber: 'PO-2026-001',
-    vendorName: 'Raipur Steel Enterprises',
+    poNumber: '6123510002178',
+    vendorName: 'Blinkit',
     totalQuantity: 250,
     location: 'RAIPUR',
     address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
     createdBy: 'Admin User',
-    timestamp: '2026-06-18T10:00:00.000Z'
+    timestamp: '2026-06-18T07:04:32.214Z'
   },
   {
-    poNumber: 'PO-2026-002',
-    vendorName: 'Durg Logistics Co.',
+    poNumber: '4478410002562',
+    vendorName: 'Zepto',
     totalQuantity: 120,
     location: 'DURG',
     address: 'Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001',
     createdBy: 'Jane Doe',
-    timestamp: '2026-06-18T11:15:00.000Z'
+    timestamp: '2026-06-18T07:04:24.647Z'
   }
 ];
 
 const SEED_VENDORS = [
   {
     id: '1',
-    name: 'Raipur Steel Enterprises',
+    name: 'Blinkit',
     phone: '9876543210'
   },
   {
     id: '2',
-    name: 'Durg Logistics Co.',
+    name: 'Zepto',
     phone: '9876543211'
+  },
+  {
+    id: '1781765658987',
+    name: 'Instamart',
+    phone: '9876543210'
   }
 ];
 
@@ -78,7 +83,7 @@ export function GeneratePOPage() {
 
   // Local storage lists
   const [purchaseOrders, setPurchaseOrders] = useLocalStorage('procureflow_generated_pos', SEED_POS);
-  const [locations, setLocations] = useLocalStorage('procureflow_locations', ['RAIPUR', 'DURG']);
+  const [locations, setLocations] = useLocalStorage('procureflow_locations', ['RAIPUR', 'DURG', 'BILASPUR']);
   const [vendors] = useLocalStorage('procureflow_vendors', SEED_VENDORS);
 
   // Search & filter

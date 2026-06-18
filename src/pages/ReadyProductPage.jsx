@@ -70,6 +70,35 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
+const SEED_READY_PRODUCTS = [
+  {
+    poNumber: "4478410002562",
+    vendorName: "Zepto",
+    totalQuantity: 120,
+    location: "DURG",
+    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
+    plannedDate: "2026-06-18T07:16:57.630Z",
+    actualDate: null,
+    status: "pending",
+    delay: 0,
+    updatedBy: "",
+    createdAt: "2026-06-18T07:16:57.631Z"
+  },
+  {
+    poNumber: "6123510002178",
+    vendorName: "Blinkit",
+    totalQuantity: 250,
+    location: "RAIPUR",
+    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
+    plannedDate: "2026-06-18T07:16:46.213Z",
+    actualDate: null,
+    status: "pending",
+    delay: 0,
+    updatedBy: "",
+    createdAt: "2026-06-18T07:16:46.213Z"
+  }
+];
+
 // ─── Component ──────────────────────────────────────────────────────
 
 export function ReadyProductPage() {
@@ -77,7 +106,7 @@ export function ReadyProductPage() {
   const { toast } = useToast();
 
   // Ready product records (pushed from CreateBillPage when bill is completed)
-  const [readyProducts, setReadyProducts] = useLocalStorage('procureflow_ready_products', []);
+  const [readyProducts, setReadyProducts] = useLocalStorage('procureflow_ready_products', SEED_READY_PRODUCTS);
 
   // Next stage storage — push completed items here
   const [checkTransport, setCheckTransport] = useLocalStorage('procureflow_check_transport', []);

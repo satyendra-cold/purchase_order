@@ -56,13 +56,18 @@ import {
 const SEED_VENDORS = [
   {
     id: '1',
-    name: 'Raipur Steel Enterprises',
+    name: 'Blinkit',
     phone: '9876543210'
   },
   {
     id: '2',
-    name: 'Durg Logistics Co.',
+    name: 'Zepto',
     phone: '9876543211'
+  },
+  {
+    id: '1781765658987',
+    name: 'Instamart',
+    phone: '9876543210'
   }
 ];
 

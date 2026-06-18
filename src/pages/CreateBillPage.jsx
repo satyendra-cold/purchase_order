@@ -74,6 +74,64 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
+const SEED_BILLS = [
+  {
+    poNumber: "6123510002178",
+    vendorName: "Blinkit",
+    totalQuantity: 250,
+    location: "RAIPUR",
+    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
+    plannedDate: "2026-06-18T07:04:32.214Z",
+    actualDate: "2026-06-18T07:16:46.213Z",
+    status: "completed",
+    delay: 1,
+    updatedBy: "Admin User",
+    createdAt: "2026-06-18T07:14:47.623Z"
+  },
+  {
+    poNumber: "4478410002562",
+    vendorName: "Zepto",
+    totalQuantity: 120,
+    location: "DURG",
+    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
+    plannedDate: "2026-06-18T07:04:24.647Z",
+    actualDate: "2026-06-18T07:16:57.630Z",
+    status: "completed",
+    delay: 1,
+    updatedBy: "Admin User",
+    createdAt: "2026-06-18T07:14:47.623Z"
+  }
+];
+
+const SEED_READY_PRODUCTS = [
+  {
+    poNumber: "4478410002562",
+    vendorName: "Zepto",
+    totalQuantity: 120,
+    location: "DURG",
+    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
+    plannedDate: "2026-06-18T07:16:57.630Z",
+    actualDate: null,
+    status: "pending",
+    delay: 0,
+    updatedBy: "",
+    createdAt: "2026-06-18T07:16:57.631Z"
+  },
+  {
+    poNumber: "6123510002178",
+    vendorName: "Blinkit",
+    totalQuantity: 250,
+    location: "RAIPUR",
+    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
+    plannedDate: "2026-06-18T07:16:46.213Z",
+    actualDate: null,
+    status: "pending",
+    delay: 0,
+    updatedBy: "",
+    createdAt: "2026-06-18T07:16:46.213Z"
+  }
+];
+
 // ─── Component ──────────────────────────────────────────────────────
 
 export function CreateBillPage() {
@@ -84,10 +142,10 @@ export function CreateBillPage() {
   const [purchaseOrders] = useLocalStorage('procureflow_generated_pos', []);
 
   // Bill records owned by this page
-  const [bills, setBills] = useLocalStorage('procureflow_bills', []);
+  const [bills, setBills] = useLocalStorage('procureflow_bills', SEED_BILLS);
 
   // Ready products – we push into this when a bill is completed
-  const [readyProducts, setReadyProducts] = useLocalStorage('procureflow_ready_products', []);
+  const [readyProducts, setReadyProducts] = useLocalStorage('procureflow_ready_products', SEED_READY_PRODUCTS);
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
