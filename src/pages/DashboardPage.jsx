@@ -505,7 +505,7 @@ export function DashboardPage() {
                         strokeDasharray={dashArray}
                         strokeDashoffset={dashOffset}
                         transform={`rotate(${rotation} 50 50)`}
-                        className="transition-all duration-300 cursor-pointer stroke-current hover:brightness-110"
+                        className="transition-all duration-300 cursor-pointer hover:brightness-110"
                         onMouseEnter={() => setHoveredLocationIdx(idx)}
                         onMouseLeave={() => setHoveredLocationIdx(null)}
                       />
