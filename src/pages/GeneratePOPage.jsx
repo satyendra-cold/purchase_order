@@ -32,7 +32,6 @@ import {
   Copy, 
   Map, 
   AlertCircle,
-  Hash,
   ShoppingBag,
   FilePlus2,
   Edit2
@@ -253,6 +252,10 @@ export function GeneratePOPage() {
   const [totalQuantity, setTotalQuantity] = useState('');
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
+  const [poReceivedDate, setPoReceivedDate] = useState('');
+  const [poExpiredDate, setPoExpiredDate] = useState('');
+  const [poPdf, setPoPdf] = useState(null);
+  const [poPdfName, setPoPdfName] = useState('');
 
   // Inline location creator states (within modal Form)
   const [isAddingLocInline, setIsAddingLocInline] = useState(false);
@@ -262,28 +265,19 @@ export function GeneratePOPage() {
   // Get active vendors list
   const activeVendors = vendors;
 
-  // Helper to suggest next PO Number
-  const suggestPoNumber = (currentList = purchaseOrders) => {
-    const prefix = 'PO-2026-';
-    const numbers = currentList
-      .map(po => po.poNumber)
-      .filter(num => num.startsWith(prefix))
-      .map(num => parseInt(num.replace(prefix, ''), 10))
-      .filter(num => !isNaN(num));
-
-    const nextIndex = numbers.length > 0 ? Math.max(...numbers) + 1 : 3;
-    return `${prefix}${String(nextIndex).padStart(3, '0')}`;
-  };
-
   // Open modal for creating new PO
   const handleOpenAddPoModal = () => {
     setIsEditing(false);
-    setPoNumber(suggestPoNumber(purchaseOrders));
+    setPoNumber('');
     setEditingOriginalPoNumber('');
     setVendorName('');
     setTotalQuantity('');
     setLocation('');
     setAddress('');
+    setPoReceivedDate('');
+    setPoExpiredDate('');
+    setPoPdf(null);
+    setPoPdfName('');
     setIsAddingLocInline(false);
     setNewLocationInput('');
     setLocError('');
@@ -299,6 +293,10 @@ export function GeneratePOPage() {
     setTotalQuantity(String(po.totalQuantity));
     setLocation(po.location);
     setAddress(po.address);
+    setPoReceivedDate(po.poReceivedDate || po.timestamp?.split('T')[0] || '');
+    setPoExpiredDate(po.poExpiredDate || '');
+    setPoPdfName(po.poPdfName || '');
+    setPoPdf(null);
     setIsAddingLocInline(false);
     setNewLocationInput('');
     setLocError('');
@@ -397,6 +395,9 @@ export function GeneratePOPage() {
               totalQuantity: qty,
               location,
               address: address.trim(),
+              poReceivedDate,
+              poExpiredDate,
+              poPdfName,
               timestamp: new Date().toISOString() // Refresh edit timestamp
             }
           : po
@@ -411,6 +412,9 @@ export function GeneratePOPage() {
         totalQuantity: qty,
         location,
         address: address.trim(),
+        poReceivedDate,
+        poExpiredDate,
+        poPdfName,
         createdBy: currentUser ? (currentUser.name || currentUser.username) : 'System',
         timestamp: new Date().toISOString()
       };
@@ -431,7 +435,7 @@ export function GeneratePOPage() {
 
   // Copy PO details to clipboard
   const handleCopyPo = (po) => {
-    const details = `PO Number: ${po.poNumber}\nVendor: ${po.vendorName}\nQty: ${po.totalQuantity}\nLocation: ${po.location}\nAddress: ${po.address}\nCreated By: ${po.createdBy}\nDate: ${formatTimestamp(po.timestamp)}`;
+    const details = `PO Number: ${po.poNumber}\nVendor: ${po.vendorName}\nQty: ${po.totalQuantity}\nLocation: ${po.location}\nAddress: ${po.address}\nCreated By: ${po.createdBy}\nDate: ${po.poReceivedDate || formatTimestamp(po.timestamp)}\nExpired: ${po.poExpiredDate || '-'}\nPDF: ${po.poPdfName || '-'}`;
     navigator.clipboard.writeText(details)
       .then(() => toast(`Copied details of ${po.poNumber} to clipboard!`, 'success'))
       .catch(() => toast('Failed to copy text', 'error'));
@@ -508,23 +512,58 @@ export function GeneratePOPage() {
             <Table>
               <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border">
                 <TableRow>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Actions</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor Name</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Total Quantity</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Address</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Created By</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Timestamp</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-right pr-4 md:pr-6">Actions</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">PO Received Date</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">PO Expired Date</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">PO PDF</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredPOs.length > 0 ? (
                   filteredPOs.map((po) => (
                     <TableRow key={po.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
-                      
+
+                      {/* Action buttons */}
+                      <TableCell className="pl-4 md:pl-6 py-4 text-left">
+                        <div className="flex items-center gap-1.5 font-normal">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleCopyPo(po)}
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
+                            title="Copy details"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleOpenEditPoModal(po)}
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
+                            title="Edit details"
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeletePo(po.poNumber)}
+                            className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                            title="Delete Record"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+
                       {/* PO Number */}
-                      <TableCell className="pl-4 md:pl-6 py-4 text-left font-semibold text-primary text-xs sm:text-sm">
+                      <TableCell className="py-4 text-left font-semibold text-primary text-xs sm:text-sm">
                         {po.poNumber}
                       </TableCell>
 
@@ -559,52 +598,34 @@ export function GeneratePOPage() {
                         </span>
                       </TableCell>
 
-                      {/* Formatted Date */}
+                      {/* PO Received Date */}
                       <TableCell className="py-4 text-left">
                         <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          {formatTimestamp(po.timestamp)}
+                          {po.poReceivedDate || formatTimestamp(po.timestamp)}
                         </span>
                       </TableCell>
 
-                      {/* Action buttons */}
-                      <TableCell className="py-4 text-right pr-4 md:pr-6">
-                        <div className="flex items-center justify-end gap-1.5 font-normal">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleCopyPo(po)}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                            title="Copy details"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleOpenEditPoModal(po)}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                            title="Edit details"
-                          >
-                            <Edit2 className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeletePo(po.poNumber)}
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
-                            title="Delete Record"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                      {/* PO Expired Date */}
+                      <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+                        {po.poExpiredDate || '-'}
+                      </TableCell>
+
+                      {/* PO PDF */}
+                      <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+                        {po.poPdfName ? (
+                          <span className="inline-flex items-center gap-1 font-medium text-primary">
+                            <FilePlus2 className="h-3.5 w-3.5" />
+                            {po.poPdfName}
+                          </span>
+                        ) : '-'}
                       </TableCell>
 
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="py-12 text-center text-muted-foreground text-sm">
+                    <TableCell colSpan={10} className="py-12 text-center text-muted-foreground text-sm">
                       No purchase orders found. Click "Add PO" to generate your first record!
                     </TableCell>
                   </TableRow>
@@ -617,7 +638,7 @@ export function GeneratePOPage() {
 
       {/* Generate PO Dialog Modal */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent onPointerDownOutside={(e) => e.preventDefault()} className="sm:max-w-[500px] bg-card border-border shadow-xl rounded-2xl p-6">
+        <DialogContent onPointerDownOutside={(e) => e.preventDefault()} className="sm:max-w-[700px] bg-card border-border shadow-xl rounded-2xl p-6 max-h-[90vh] overflow-y-auto">
           <form onSubmit={handleSubmitPo}>
             <DialogHeader className="text-left mb-4">
               <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
@@ -631,12 +652,11 @@ export function GeneratePOPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-4 py-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4 py-2">
               
-              {/* Row 1: PO Number */}
+              {/* PO Number */}
               <div className="space-y-1.5 text-left">
                 <Label htmlFor="poNumber" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
-                  <Hash className="h-3.5 w-3.5" />
                   PO Number*
                 </Label>
                 <Input
@@ -649,7 +669,7 @@ export function GeneratePOPage() {
                 />
               </div>
 
-              {/* Row 2: Vendor Name (Dropdown) */}
+              {/* Vendor Name (Dropdown) */}
               <div className="space-y-1.5 text-left">
                 <Label htmlFor="vendorName" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
                   <User className="h-3.5 w-3.5" />
@@ -675,7 +695,7 @@ export function GeneratePOPage() {
                 )}
               </div>
 
-              {/* Row 3: Total Quantity */}
+              {/* Total Quantity */}
               <div className="space-y-1.5 text-left">
                 <Label htmlFor="totalQuantity" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
                   <ShoppingBag className="h-3.5 w-3.5" />
@@ -693,7 +713,7 @@ export function GeneratePOPage() {
                 />
               </div>
 
-              {/* Row 4: Location Dropdown + Inline constant adder */}
+              {/* Location Dropdown + Inline constant adder */}
               <div className="space-y-1.5 text-left">
                 <div className="flex justify-between items-center mb-0.5">
                   <Label htmlFor="location" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
@@ -763,21 +783,77 @@ export function GeneratePOPage() {
                 )}
               </div>
 
-              {/* Row 5: Address */}
-              <div className="space-y-1.5 text-left">
+              {/* Address - full width */}
+              <div className="space-y-1.5 text-left sm:col-span-2">
                 <Label htmlFor="address" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
                   <Map className="h-3.5 w-3.5" />
                   Address*
                 </Label>
                 <textarea
                   id="address"
-                  rows="3"
+                  rows="2"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   placeholder="Enter shipping or delivery address..."
                   className="w-full min-w-0 rounded-xl border border-input bg-transparent px-3 py-2 text-xs sm:text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
                   required
                 />
+              </div>
+
+              {/* PO Received Date */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="poReceivedDate" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  PO Received Date
+                </Label>
+                <Input
+                  id="poReceivedDate"
+                  type="date"
+                  value={poReceivedDate}
+                  onChange={(e) => setPoReceivedDate(e.target.value)}
+                  className="rounded-xl bg-background border-input"
+                />
+              </div>
+
+              {/* PO Expired Date */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="poExpiredDate" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" />
+                  PO Expired Date
+                </Label>
+                <Input
+                  id="poExpiredDate"
+                  type="date"
+                  value={poExpiredDate}
+                  onChange={(e) => setPoExpiredDate(e.target.value)}
+                  className="rounded-xl bg-background border-input"
+                />
+              </div>
+
+              {/* PO PDF - full width */}
+              <div className="space-y-1.5 text-left sm:col-span-2">
+                <Label htmlFor="poPdf" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
+                  <FilePlus2 className="h-3.5 w-3.5" />
+                  PO PDF
+                </Label>
+                <Input
+                  id="poPdf"
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setPoPdf(file);
+                      setPoPdfName(file.name);
+                    }
+                  }}
+                  className="rounded-xl bg-background border-input file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+                />
+                {poPdfName && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Selected: {poPdfName}
+                  </p>
+                )}
               </div>
 
             </div>

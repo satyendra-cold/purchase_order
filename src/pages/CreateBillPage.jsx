@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/useToast';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -23,11 +24,11 @@ import {
   Timer,
   Receipt,
   MapPin,
-  CalendarClock,
   CalendarCheck2,
-  Filter,
   Eye,
+  FileDown,
 } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -46,6 +47,17 @@ const formatDate = (isoString) => {
   } catch {
     return isoString;
   }
+};
+
+const formatReceivedDate = (bill) =>
+  bill.poReceivedDate ||
+  (bill.plannedDate
+    ? new Date(bill.plannedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '-');
+
+const formatAmount = (amount) => {
+  if (amount == null || isNaN(amount)) return '-';
+  return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 };
 
 /** Calculate delay in calendar days between two ISO dates. Returns integer ≥ 0 */
@@ -86,6 +98,10 @@ const SEED_BILLS = [
     status: "pending",
     delay: 0,
     updatedBy: "",
+    billNumber: '',
+    billAmount: null,
+    billDate: '',
+    billPdfName: '',
     createdAt: "2026-06-18T06:10:00.000Z"
   },
   {
@@ -99,6 +115,10 @@ const SEED_BILLS = [
     status: "pending",
     delay: 0,
     updatedBy: "",
+    billNumber: '',
+    billAmount: null,
+    billDate: '',
+    billPdfName: '',
     createdAt: "2026-06-18T06:15:00.000Z"
   },
   {
@@ -112,6 +132,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-6365710002530',
+    billAmount: 65000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-6365710002530.pdf',
     createdAt: "2026-06-18T06:20:00.000Z"
   },
   {
@@ -125,6 +149,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-6770710002344',
+    billAmount: 82000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-6770710002344.pdf',
     createdAt: "2026-06-18T06:25:00.000Z"
   },
   {
@@ -138,6 +166,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-4756910003396',
+    billAmount: 45000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-4756910003396.pdf',
     createdAt: "2026-06-18T06:30:00.000Z"
   },
   {
@@ -151,6 +183,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-6120910003105',
+    billAmount: 38000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-6120910003105.pdf',
     createdAt: "2026-06-18T06:35:00.000Z"
   },
   {
@@ -164,6 +200,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-4478410003458',
+    billAmount: 120000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-4478410003458.pdf',
     createdAt: "2026-06-18T06:40:00.000Z"
   },
   {
@@ -177,6 +217,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-17530310001615',
+    billAmount: 72000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-17530310001615.pdf',
     createdAt: "2026-06-18T06:45:00.000Z"
   },
   {
@@ -190,6 +234,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-6123510003070',
+    billAmount: 28000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-6123510003070.pdf',
     createdAt: "2026-06-18T06:50:00.000Z"
   },
   {
@@ -203,6 +251,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-28313510000700',
+    billAmount: 55000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-28313510000700.pdf',
     createdAt: "2026-06-18T06:55:00.000Z"
   },
   {
@@ -216,6 +268,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-19242410001560',
+    billAmount: 95000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-19242410001560.pdf',
     createdAt: "2026-06-18T07:00:00.000Z"
   },
   {
@@ -229,6 +285,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-22223310001089',
+    billAmount: 61000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-22223310001089.pdf',
     createdAt: "2026-06-18T07:05:00.000Z"
   },
   {
@@ -242,6 +302,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-4478410003477',
+    billAmount: 78000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-4478410003477.pdf',
     createdAt: "2026-06-18T07:10:00.000Z"
   },
   {
@@ -255,6 +319,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-14703810002069',
+    billAmount: 150000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-14703810002069.pdf',
     createdAt: "2026-06-18T07:15:00.000Z"
   },
   {
@@ -268,6 +336,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-6123510003088',
+    billAmount: 35000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-6123510003088.pdf',
     createdAt: "2026-06-18T07:20:00.000Z"
   },
   {
@@ -294,6 +366,10 @@ const SEED_BILLS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-28313510000716',
+    billAmount: 88000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-28313510000716.pdf',
     createdAt: "2026-06-18T07:30:00.000Z"
   }
 ];
@@ -310,6 +386,10 @@ const SEED_READY_PRODUCTS = [
     status: "pending",
     delay: 0,
     updatedBy: "",
+    billNumber: 'BILL-6365710002530',
+    billAmount: 65000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-6365710002530.pdf',
     createdAt: "2026-06-18T07:00:00.000Z"
   },
   {
@@ -479,6 +559,10 @@ const SEED_READY_PRODUCTS = [
     status: "completed",
     delay: 0,
     updatedBy: "Admin User",
+    billNumber: 'BILL-6120910003120',
+    billAmount: 53000,
+    billDate: '2026-06-18',
+    billPdfName: 'Bill-6120910003120.pdf',
     createdAt: "2026-06-18T08:05:00.000Z"
   },
   {
@@ -517,6 +601,13 @@ export function CreateBillPage() {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, bill: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, bill: null });
 
+  // Create Bill dialog
+  const [createBillDialog, setCreateBillDialog] = useState({ open: false, bill: null });
+  const [billAmountInput, setBillAmountInput] = useState('');
+  const [billDateInput, setBillDateInput] = useState('');
+  const [billPdfInput, setBillPdfInput] = useState(null);
+  const [billPdfNameInput, setBillPdfNameInput] = useState('');
+
   // ── Auto-sync: add bill entries for POs that don't have one yet ──
   useEffect(() => {
     if (!Array.isArray(purchaseOrders) || purchaseOrders.length === 0) return;
@@ -530,7 +621,13 @@ export function CreateBillPage() {
         totalQuantity: po.totalQuantity,
         location: po.location,
         address: po.address,
-        plannedDate: po.timestamp, // date the PO was generated
+        poReceivedDate: po.poReceivedDate || po.timestamp?.split('T')[0] || '',
+        poPdfName: po.poPdfName || '',
+        plannedDate: po.poReceivedDate ? new Date(po.poReceivedDate).toISOString() : po.timestamp,
+        billNumber: '',
+        billAmount: null,
+        billDate: '',
+        billPdfName: '',
         actualDate: null,
         status: 'pending',
         delay: 0,
@@ -579,6 +676,118 @@ export function CreateBillPage() {
 
     toast(`Bill for ${bill.poNumber} marked as completed!`, 'success');
     setConfirmDialog({ open: false, bill: null });
+  };
+
+  // ── Generate Bill PDF ───────────────────────────────────────────────
+  const handleDownloadPdf = (bill) => {
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW = 190;
+    let y = 20;
+
+    const bold = (text, size = 12) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(size);
+      doc.text(text, 10, y);
+      y += 7;
+    };
+
+    const line = (label, value, size = 10) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(size);
+      doc.text(label, 15, y);
+      doc.setFont('helvetica', 'normal');
+      doc.text(String(value), 65, y);
+      y += 6;
+    };
+
+    const hr = () => {
+      y += 2;
+      doc.setDrawColor(200);
+      doc.line(10, y, pageW, y);
+      y += 4;
+    };
+
+    // Header
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('PURCHASE ORDER BILL', 10, y);
+    y += 4;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(`Generated: ${new Date().toLocaleString('en-IN')}`, 10, y);
+    y += 12;
+
+    // Divider
+    hr();
+
+    // Bill details
+    bold('Bill Details', 13);
+    line('PO Number:', bill.poNumber);
+    line('Vendor:', bill.vendorName);
+    line('Quantity:', bill.totalQuantity?.toLocaleString() || '—');
+    line('Location:', bill.location);
+    line('Address:', bill.address);
+    line('Bill Number:', bill.billNumber || '—');
+    line('Bill Amount:', bill.billAmount ? formatAmount(bill.billAmount) : '—');
+    line('Bill Date:', bill.billDate || '—');
+    hr();
+
+    // Dates
+    bold('Dates', 13);
+    line('PO Received:', formatReceivedDate(bill));
+    line('Planned:', bill.plannedDate ? formatDate(bill.plannedDate) : '—');
+    line('Actual:', bill.actualDate ? formatDate(bill.actualDate) : 'Not yet');
+    hr();
+
+    // Status
+    bold('Status', 13);
+    line('Status:', bill.status === 'completed' ? 'Completed' : 'Pending');
+    if (bill.status === 'completed') {
+      line('Delay:', bill.delay === 0 ? 'On time' : `${bill.delay} day${bill.delay > 1 ? 's' : ''}`);
+      line('Completed By:', bill.updatedBy || '—');
+    }
+    hr();
+
+    // Footer
+    y += 4;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text('This is a system-generated bill.', 10, y);
+
+    doc.save(`Bill_${bill.poNumber}.pdf`);
+  };
+
+  // ── Create Bill handler ────────────────────────────────────────────
+  const handleCreateBill = () => {
+    const bill = createBillDialog.bill;
+    if (!bill) return;
+
+    const amount = parseFloat(billAmountInput);
+    if (isNaN(amount) || amount <= 0) {
+      toast('Please enter a valid Bill Amount.', 'error');
+      return;
+    }
+
+    if (!billDateInput) {
+      toast('Please select a Bill Date.', 'error');
+      return;
+    }
+
+    const updatedBills = bills.map((b) =>
+      b.poNumber === bill.poNumber
+        ? {
+            ...b,
+            billNumber: `BILL-${bill.poNumber}`,
+            billAmount: amount,
+            billDate: billDateInput,
+            billPdfName: billPdfNameInput,
+          }
+        : b
+    );
+    setBills(updatedBills);
+    toast(`Bill for ${bill.poNumber} created successfully!`, 'success');
+    setCreateBillDialog({ open: false, bill: null });
   };
 
   // ── Filtered & searched list ───────────────────────────────────────
@@ -713,6 +922,9 @@ export function CreateBillPage() {
               <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border">
                 <TableRow>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">
+                    Actions
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     PO Number
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
@@ -722,7 +934,16 @@ export function CreateBillPage() {
                     Location
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Planned Date
+                    PO Received Date
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                    Bill Number
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                    Bill Amount
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                    Bill Date
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Actual Date
@@ -736,9 +957,6 @@ export function CreateBillPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Updated By
                   </TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-right pr-4 md:pr-6">
-                    Actions
-                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -748,8 +966,56 @@ export function CreateBillPage() {
                       key={bill.poNumber}
                       className="hover:bg-accent/40 border-b border-border transition-colors"
                     >
+                      {/* Actions */}
+                      <TableCell className="pl-4 md:pl-6 py-4 text-left">
+                        <div className="flex items-center gap-1.5">
+                          {/* View detail */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDetailDialog({ open: true, bill })}
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
+                            title="View details"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+
+                          {!bill.billNumber ? (
+                            <Button
+                              onClick={() => {
+                                setBillAmountInput('');
+                                setBillDateInput(new Date().toISOString().split('T')[0]);
+                                setBillPdfInput(null);
+                                setBillPdfNameInput('');
+                                setCreateBillDialog({ open: true, bill });
+                              }}
+                              className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                            >
+                              <Receipt className="h-3.5 w-3.5" />
+                              Create Bill
+                            </Button>
+                          ) : bill.status === 'pending' ? (
+                            <Button
+                              onClick={() => setConfirmDialog({ open: true, bill })}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Mark Complete
+                            </Button>
+                          ) : (
+                            <Button
+                              onClick={() => handleDownloadPdf(bill)}
+                              className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                            >
+                              <FileDown className="h-3.5 w-3.5" />
+                              Bill PDF
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+
                       {/* PO Number */}
-                      <TableCell className="pl-4 md:pl-6 py-4 text-left font-semibold text-primary text-xs sm:text-sm">
+                      <TableCell className="py-4 text-left font-semibold text-primary text-xs sm:text-sm">
                         {bill.poNumber}
                       </TableCell>
 
@@ -766,12 +1032,24 @@ export function CreateBillPage() {
                         </span>
                       </TableCell>
 
-                      {/* Planned Date */}
-                      <TableCell className="py-4 text-left">
-                        <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
-                          {formatDate(bill.plannedDate)}
-                        </span>
+                      {/* PO Received Date */}
+                      <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+                        {formatReceivedDate(bill)}
+                      </TableCell>
+
+                      {/* Bill Number */}
+                      <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
+                        {bill.billNumber || '-'}
+                      </TableCell>
+
+                      {/* Bill Amount */}
+                      <TableCell className="py-4 text-left text-xs sm:text-sm text-foreground">
+                        {formatAmount(bill.billAmount)}
+                      </TableCell>
+
+                      {/* Bill Date */}
+                      <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+                        {bill.billDate || '-'}
                       </TableCell>
 
                       {/* Actual Date */}
@@ -828,37 +1106,11 @@ export function CreateBillPage() {
                           <span className="text-xs text-muted-foreground italic">—</span>
                         )}
                       </TableCell>
-
-                      {/* Actions */}
-                      <TableCell className="py-4 text-right pr-4 md:pr-6">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* View detail */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDetailDialog({ open: true, bill })}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                            title="View details"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-
-                          {bill.status === 'pending' && (
-                            <Button
-                              onClick={() => setConfirmDialog({ open: true, bill })}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Mark Complete
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-16 text-center">
+                    <TableCell colSpan={12} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-primary/5 rounded-full">
                           <Receipt className="h-8 w-8 text-primary/40" />
@@ -905,6 +1157,22 @@ export function CreateBillPage() {
                 <span className="font-medium">{confirmDialog.bill.vendorName}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Bill Number</span>
+                <span className="font-medium">{confirmDialog.bill.billNumber || '-'}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Bill Amount</span>
+                <span className="font-medium">{formatAmount(confirmDialog.bill.billAmount)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Bill Date</span>
+                <span className="font-medium">{confirmDialog.bill.billDate || '-'}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">PO Received Date</span>
+                <span className="font-medium">{formatReceivedDate(confirmDialog.bill)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Planned Date</span>
                 <span className="font-medium">{formatDate(confirmDialog.bill.plannedDate)}</span>
               </div>
@@ -940,6 +1208,97 @@ export function CreateBillPage() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Create Bill Dialog ─────────────────────────────────────── */}
+      <Dialog open={createBillDialog.open} onOpenChange={(open) => !open && setCreateBillDialog({ open: false, bill: null })}>
+        <DialogContent className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6">
+          <DialogHeader className="text-left mb-2">
+            <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" />
+              Create Bill
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Enter bill details for PO {createBillDialog.bill?.poNumber}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {createBillDialog.bill && (
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Bill Number</Label>
+                <Input
+                  value={`BILL-${createBillDialog.bill.poNumber}`}
+                  readOnly
+                  className="rounded-xl bg-muted border-input text-xs h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Bill Amount*</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={billAmountInput}
+                  onChange={(e) => setBillAmountInput(e.target.value)}
+                  placeholder="e.g. 50000"
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Bill Date*</Label>
+                <Input
+                  type="date"
+                  value={billDateInput}
+                  onChange={(e) => setBillDateInput(e.target.value)}
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                  required
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Bill PDF</Label>
+                <Input
+                  type="file"
+                  accept=".pdf,application/pdf"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setBillPdfInput(file);
+                      setBillPdfNameInput(file.name);
+                    }
+                  }}
+                  className="rounded-xl bg-background border-input file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer text-xs h-10"
+                />
+                {billPdfNameInput && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    Selected: {billPdfNameInput}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="mt-6 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCreateBillDialog({ open: false, bill: null })}
+              className="border-border hover:bg-accent rounded-xl cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateBill}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl cursor-pointer gap-1.5"
+            >
+              <Receipt className="h-4 w-4" />
+              Create Bill
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Detail View Dialog ─────────────────────────────────────── */}
       <Dialog open={detailDialog.open} onOpenChange={(open) => !open && setDetailDialog({ open: false, bill: null })}>
         <DialogContent className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6">
@@ -961,6 +1320,12 @@ export function CreateBillPage() {
                 { label: 'Quantity', value: detailDialog.bill.totalQuantity?.toLocaleString() },
                 { label: 'Location', value: detailDialog.bill.location },
                 { label: 'Address', value: detailDialog.bill.address },
+                { label: 'Bill Number', value: detailDialog.bill.billNumber || '-' },
+                { label: 'Bill Amount', value: formatAmount(detailDialog.bill.billAmount) },
+                { label: 'Bill Date', value: detailDialog.bill.billDate || '-' },
+                { label: 'PO Received Date', value: formatReceivedDate(detailDialog.bill) },
+                { label: 'PO PDF', value: detailDialog.bill.poPdfName || '-' },
+                { label: 'Bill PDF', value: detailDialog.bill.billPdfName || '-' },
                 { label: 'Planned Date', value: formatDate(detailDialog.bill.plannedDate) },
                 { label: 'Actual Date', value: detailDialog.bill.actualDate ? formatDate(detailDialog.bill.actualDate) : 'Not yet' },
                 { label: 'Status', value: detailDialog.bill.status === 'completed' ? 'Completed' : 'Pending' },

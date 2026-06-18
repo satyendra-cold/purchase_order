@@ -452,6 +452,9 @@ export function ReadyProductPage() {
               <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border">
                 <TableRow>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">
+                    Actions
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">
                     PO Number
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
@@ -475,9 +478,6 @@ export function ReadyProductPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Updated By
                   </TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-right pr-4 md:pr-6">
-                    Actions
-                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -488,6 +488,29 @@ export function ReadyProductPage() {
                       className="hover:bg-accent/40 border-b border-border transition-colors"
                     >
                       {/* PO Number */}
+                      <TableCell className="pl-4 md:pl-6 py-4 text-left">
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDetailDialog({ open: true, item })}
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
+                            title="View details"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+
+                          {item.status === 'pending' && (
+                            <Button
+                              onClick={() => setConfirmDialog({ open: true, item })}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                            >
+                              <PackageCheck className="h-3.5 w-3.5" />
+                              Mark Ready
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="pl-4 md:pl-6 py-4 text-left font-semibold text-primary text-xs sm:text-sm">
                         {item.poNumber}
                       </TableCell>
@@ -568,36 +591,11 @@ export function ReadyProductPage() {
                         )}
                       </TableCell>
 
-                      {/* Actions */}
-                      <TableCell className="py-4 text-right pr-4 md:pr-6">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {/* View detail */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDetailDialog({ open: true, item })}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                            title="View details"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-
-                          {item.status === 'pending' && (
-                            <Button
-                              onClick={() => setConfirmDialog({ open: true, item })}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
-                            >
-                              <PackageCheck className="h-3.5 w-3.5" />
-                              Mark Ready
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-16 text-center">
+                    <TableCell colSpan={10} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-primary/5 rounded-full">
                           <PackageCheck className="h-8 w-8 text-primary/40" />
