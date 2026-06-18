@@ -50,8 +50,7 @@ import {
   ClipboardCheck, 
   CheckSquare, 
   CreditCard, 
-  Package,
-  Database
+  Package
 } from 'lucide-react';
 
 const SEED_VENDORS = [
@@ -305,14 +304,12 @@ export function SettingsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="text-left">
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
-            {activeTab === 'staff' ? 'User Settings' : activeTab === 'vendors' ? 'Vendor Settings' : 'System Maintenance'}
+            {activeTab === 'staff' ? 'User Settings' : 'Vendor Settings'}
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground mt-1">
             {activeTab === 'staff'
               ? 'Manage your procurement staff records, system roles, and page access privileges.'
-              : activeTab === 'vendors'
-              ? 'Manage registered suppliers and their contact telephone numbers.'
-              : 'Perform administrative actions, database seeding, and workflow state resets.'}
+              : 'Manage registered suppliers and their contact telephone numbers.'}
           </p>
         </div>
 
@@ -359,17 +356,6 @@ export function SettingsPage() {
         >
           <Briefcase className="h-4 w-4" />
           Manage Vendors
-        </button>
-        <button
-          onClick={() => setActiveTab('maintenance')}
-          className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-semibold border-b-2 transition-all duration-200 cursor-pointer ${
-            activeTab === 'maintenance'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/40'
-          }`}
-        >
-          <Database className="h-4 w-4" />
-          System Maintenance
         </button>
       </div>
 
@@ -552,56 +538,6 @@ export function SettingsPage() {
               </Table>
             </div>
           </CardContent>
-        </Card>
-      )}
-
-      {/* SYSTEM MAINTENANCE CONTENT */}
-      {activeTab === 'maintenance' && (
-        <Card className="border-border bg-card shadow-sm rounded-2xl p-6 text-left">
-          <div className="max-w-2xl space-y-6">
-            <div>
-              <h3 className="text-lg font-bold text-foreground mb-1">Reset Workflow Seeding</h3>
-              <p className="text-xs text-muted-foreground">
-                Clearing workflow status data will remove all current active runs and re-seed the local database with the 19 standard purchase orders (Blinkit, Zepto, and Instamart) distributed across all stages of the procurement cycle. This will not affect user accounts.
-              </p>
-            </div>
-            
-            <div className="p-4 bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 rounded-2xl flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
-              <div>
-                <h4 className="text-sm font-bold">Important Notice</h4>
-                <p className="text-xs mt-1 leading-relaxed">
-                  Performing this reset will clear local storage data for:
-                  <code className="block mt-1 font-mono text-[10px] bg-amber-500/20 dark:bg-amber-950/40 px-2 py-1 rounded">
-                    procureflow_generated_pos, procureflow_bills, procureflow_ready_products, procureflow_check_transport, procureflow_print_invoice, procureflow_supply_check, procureflow_approve_product, procureflow_payment_processing
-                  </code>
-                  This action is irreversible. The browser page will reload automatically.
-                </p>
-              </div>
-            </div>
-
-            <Button
-              onClick={() => {
-                if (window.confirm("Are you sure you want to reset and re-seed the database? All custom created POs and stages will be deleted.")) {
-                  localStorage.removeItem('procureflow_generated_pos');
-                  localStorage.removeItem('procureflow_bills');
-                  localStorage.removeItem('procureflow_ready_products');
-                  localStorage.removeItem('procureflow_check_transport');
-                  localStorage.removeItem('procureflow_print_invoice');
-                  localStorage.removeItem('procureflow_supply_check');
-                  localStorage.removeItem('procureflow_approve_product');
-                  localStorage.removeItem('procureflow_payment_processing');
-                  toast("Resetting database and re-seeding workflow...", "success");
-                  setTimeout(() => {
-                    window.location.reload();
-                  }, 1000);
-                }
-              }}
-              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold px-6 py-2 rounded-xl"
-            >
-              Reset & Re-Seed Database
-            </Button>
-          </div>
         </Card>
       )}
 
