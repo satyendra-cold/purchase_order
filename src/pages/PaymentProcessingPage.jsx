@@ -68,6 +68,35 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
+const SEED_PAYMENT_PROCESSING = [
+  {
+    poNumber: "PO-2026-I03",
+    vendorName: "Instamart",
+    totalQuantity: 600,
+    location: "DURG",
+    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
+    plannedDate: "2026-06-18T09:10:00.000Z",
+    actualDate: null,
+    status: "pending",
+    delay: 0,
+    updatedBy: "",
+    createdAt: "2026-06-18T09:10:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-I04",
+    vendorName: "Instamart",
+    totalQuantity: 800,
+    location: "BILASPUR",
+    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
+    plannedDate: "2026-06-18T09:11:00.000Z",
+    actualDate: "2026-06-18T09:30:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "User One",
+    createdAt: "2026-06-18T09:11:00.000Z"
+  }
+];
+
 // ─── Component ──────────────────────────────────────────────────────
 
 export function PaymentProcessingPage() {
@@ -75,7 +104,7 @@ export function PaymentProcessingPage() {
   const { toast } = useToast();
 
   // This stage's records (pushed from ApproveProductPage) — FINAL STAGE
-  const [items, setItems] = useLocalStorage('procureflow_payment_processing', []);
+  const [items, setItems] = useLocalStorage('procureflow_payment_processing', SEED_PAYMENT_PROCESSING);
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');

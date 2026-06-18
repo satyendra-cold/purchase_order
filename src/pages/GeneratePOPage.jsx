@@ -40,6 +40,24 @@ import {
 
 const SEED_POS = [
   {
+    poNumber: 'PO-2026-B01',
+    vendorName: 'Blinkit',
+    totalQuantity: 500,
+    location: 'RAIPUR',
+    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
+    createdBy: 'Admin User',
+    timestamp: '2026-06-18T06:30:00.000Z'
+  },
+  {
+    poNumber: 'PO-2026-B02',
+    vendorName: 'Blinkit',
+    totalQuantity: 300,
+    location: 'BILASPUR',
+    address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',
+    createdBy: 'Admin User',
+    timestamp: '2026-06-18T06:40:00.000Z'
+  },
+  {
     poNumber: '6123510002178',
     vendorName: 'Blinkit',
     totalQuantity: 250,
@@ -56,6 +74,60 @@ const SEED_POS = [
     address: 'Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001',
     createdBy: 'Jane Doe',
     timestamp: '2026-06-18T07:04:24.647Z'
+  },
+  {
+    poNumber: 'PO-2026-Z02',
+    vendorName: 'Zepto',
+    totalQuantity: 180,
+    location: 'DURG',
+    address: 'Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001',
+    createdBy: 'Jane Doe',
+    timestamp: '2026-06-18T06:50:00.000Z'
+  },
+  {
+    poNumber: 'PO-2026-Z03',
+    vendorName: 'Zepto',
+    totalQuantity: 200,
+    location: 'RAIPUR',
+    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
+    createdBy: 'Jane Doe',
+    timestamp: '2026-06-18T06:55:00.000Z'
+  },
+  {
+    poNumber: 'PO-2026-I01',
+    vendorName: 'Instamart',
+    totalQuantity: 450,
+    location: 'BILASPUR',
+    address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',
+    createdBy: 'User One',
+    timestamp: '2026-06-18T06:00:00.000Z'
+  },
+  {
+    poNumber: 'PO-2026-I02',
+    vendorName: 'Instamart',
+    totalQuantity: 150,
+    location: 'RAIPUR',
+    address: 'Plot 45, Urla Industrial Area, Raipur, CG - 492003',
+    createdBy: 'User One',
+    timestamp: '2026-06-18T06:05:00.000Z'
+  },
+  {
+    poNumber: 'PO-2026-I03',
+    vendorName: 'Instamart',
+    totalQuantity: 600,
+    location: 'DURG',
+    address: 'Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001',
+    createdBy: 'User One',
+    timestamp: '2026-06-18T06:10:00.000Z'
+  },
+  {
+    poNumber: 'PO-2026-I04',
+    vendorName: 'Instamart',
+    totalQuantity: 800,
+    location: 'BILASPUR',
+    address: 'Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004',
+    createdBy: 'User One',
+    timestamp: '2026-06-18T06:15:00.000Z'
   }
 ];
 

@@ -68,6 +68,48 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
+const SEED_APPROVE_PRODUCT = [
+  {
+    poNumber: "PO-2026-I02",
+    vendorName: "Instamart",
+    totalQuantity: 150,
+    location: "RAIPUR",
+    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
+    plannedDate: "2026-06-18T08:45:00.000Z",
+    actualDate: null,
+    status: "pending",
+    delay: 0,
+    updatedBy: "",
+    createdAt: "2026-06-18T08:45:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-I03",
+    vendorName: "Instamart",
+    totalQuantity: 600,
+    location: "DURG",
+    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
+    plannedDate: "2026-06-18T08:46:00.000Z",
+    actualDate: "2026-06-18T09:10:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "User One",
+    createdAt: "2026-06-18T08:46:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-I04",
+    vendorName: "Instamart",
+    totalQuantity: 800,
+    location: "BILASPUR",
+    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
+    plannedDate: "2026-06-18T08:47:00.000Z",
+    actualDate: "2026-06-18T09:11:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "User One",
+    createdAt: "2026-06-18T08:47:00.000Z"
+  }
+];
+
 // ─── Component ──────────────────────────────────────────────────────
 
 export function ApproveProductPage() {
@@ -75,7 +117,7 @@ export function ApproveProductPage() {
   const { toast } = useToast();
 
   // This stage's records (pushed from SupplyCheckPage)
-  const [items, setItems] = useLocalStorage('procureflow_approve_product', []);
+  const [items, setItems] = useLocalStorage('procureflow_approve_product', SEED_APPROVE_PRODUCT);
 
   // Next stage storage — push completed items here
   const [nextStage, setNextStage] = useLocalStorage('procureflow_payment_processing', []);

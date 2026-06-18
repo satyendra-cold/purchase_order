@@ -68,6 +68,87 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
+const SEED_CHECK_TRANSPORT = [
+  {
+    poNumber: "PO-2026-Z02",
+    vendorName: "Zepto",
+    totalQuantity: 180,
+    location: "DURG",
+    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
+    plannedDate: "2026-06-18T07:45:00.000Z",
+    actualDate: null,
+    status: "pending",
+    delay: 0,
+    updatedBy: "",
+    createdAt: "2026-06-18T07:45:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-Z03",
+    vendorName: "Zepto",
+    totalQuantity: 200,
+    location: "RAIPUR",
+    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
+    plannedDate: "2026-06-18T07:46:00.000Z",
+    actualDate: "2026-06-18T08:10:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "Jane Doe",
+    createdAt: "2026-06-18T07:46:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-I01",
+    vendorName: "Instamart",
+    totalQuantity: 450,
+    location: "BILASPUR",
+    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
+    plannedDate: "2026-06-18T07:30:00.000Z",
+    actualDate: "2026-06-18T07:50:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "User One",
+    createdAt: "2026-06-18T07:30:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-I02",
+    vendorName: "Instamart",
+    totalQuantity: 150,
+    location: "RAIPUR",
+    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
+    plannedDate: "2026-06-18T07:31:00.000Z",
+    actualDate: "2026-06-18T07:51:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "User One",
+    createdAt: "2026-06-18T07:31:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-I03",
+    vendorName: "Instamart",
+    totalQuantity: 600,
+    location: "DURG",
+    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
+    plannedDate: "2026-06-18T07:32:00.000Z",
+    actualDate: "2026-06-18T07:52:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "User One",
+    createdAt: "2026-06-18T07:32:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-I04",
+    vendorName: "Instamart",
+    totalQuantity: 800,
+    location: "BILASPUR",
+    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
+    plannedDate: "2026-06-18T07:33:00.000Z",
+    actualDate: "2026-06-18T07:53:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "User One",
+    createdAt: "2026-06-18T07:33:00.000Z"
+  }
+];
+
 // ─── Component ──────────────────────────────────────────────────────
 
 export function CheckTransportPage() {
@@ -75,7 +156,7 @@ export function CheckTransportPage() {
   const { toast } = useToast();
 
   // This stage's records (pushed from ReadyProductPage)
-  const [items, setItems] = useLocalStorage('procureflow_check_transport', []);
+  const [items, setItems] = useLocalStorage('procureflow_check_transport', SEED_CHECK_TRANSPORT);
 
   // Next stage storage — push completed items here
   const [nextStage, setNextStage] = useLocalStorage('procureflow_print_invoice', []);

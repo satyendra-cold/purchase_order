@@ -68,6 +68,74 @@ const TABS = [
   { key: 'completed', label: 'Completed' },
 ];
 
+const SEED_PRINT_INVOICE = [
+  {
+    poNumber: "PO-2026-Z03",
+    vendorName: "Zepto",
+    totalQuantity: 200,
+    location: "RAIPUR",
+    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
+    plannedDate: "2026-06-18T08:10:00.000Z",
+    actualDate: null,
+    status: "pending",
+    delay: 0,
+    updatedBy: "",
+    createdAt: "2026-06-18T08:10:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-I01",
+    vendorName: "Instamart",
+    totalQuantity: 450,
+    location: "BILASPUR",
+    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
+    plannedDate: "2026-06-18T07:50:00.000Z",
+    actualDate: "2026-06-18T08:20:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "User One",
+    createdAt: "2026-06-18T07:50:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-I02",
+    vendorName: "Instamart",
+    totalQuantity: 150,
+    location: "RAIPUR",
+    address: "Plot 45, Urla Industrial Area, Raipur, CG - 492003",
+    plannedDate: "2026-06-18T07:51:00.000Z",
+    actualDate: "2026-06-18T08:21:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "User One",
+    createdAt: "2026-06-18T07:51:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-I03",
+    vendorName: "Instamart",
+    totalQuantity: 600,
+    location: "DURG",
+    address: "Gate 2, Bhilai Steel Plant Industrial Area, Durg, CG - 491001",
+    plannedDate: "2026-06-18T07:52:00.000Z",
+    actualDate: "2026-06-18T08:22:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "User One",
+    createdAt: "2026-06-18T07:52:00.000Z"
+  },
+  {
+    poNumber: "PO-2026-I04",
+    vendorName: "Instamart",
+    totalQuantity: 800,
+    location: "BILASPUR",
+    address: "Sector C, Sirgitti Industrial Area, Bilaspur, CG - 495004",
+    plannedDate: "2026-06-18T07:53:00.000Z",
+    actualDate: "2026-06-18T08:23:00.000Z",
+    status: "completed",
+    delay: 0,
+    updatedBy: "User One",
+    createdAt: "2026-06-18T07:53:00.000Z"
+  }
+];
+
 // ─── Component ──────────────────────────────────────────────────────
 
 export function PrintInvoicePage() {
@@ -75,7 +143,7 @@ export function PrintInvoicePage() {
   const { toast } = useToast();
 
   // This stage's records (pushed from CheckTransportPage)
-  const [items, setItems] = useLocalStorage('procureflow_print_invoice', []);
+  const [items, setItems] = useLocalStorage('procureflow_print_invoice', SEED_PRINT_INVOICE);
 
   // Next stage storage — push completed items here
   const [nextStage, setNextStage] = useLocalStorage('procureflow_supply_check', []);
