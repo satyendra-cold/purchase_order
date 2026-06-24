@@ -1,19 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSheetData } from '@/hooks/useSheetData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -77,6 +69,14 @@ const delayBadgeClass = (days) => {
   return 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800';
 };
 
+const hasValue = (val) => val != null && String(val).trim() !== '';
+
+const makeTimestamp = () => {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
 const TABS = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
@@ -89,14 +89,8 @@ export function PrintInvoicePage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
-  // This stage's records
-  const [items, setItems] = useLocalStorage('procureflow_print_invoice', []);
-
-  // Bills list to match amount, date, and invoice numbers
-  const [bills] = useLocalStorage('procureflow_bills', []);
-
-  // Next stage storage — push completed items here
-  const [nextStage, setNextStage] = useLocalStorage('procureflow_supply_check', []);
+  // Load consolidated FMS sheet directly
+  const [fmsData, setFmsData] = useSheetData('FMS', 'poNumber');
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
@@ -104,18 +98,10 @@ export function PrintInvoicePage() {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
 
-  // Decorate items with bill details dynamically
-  const decoratedItems = useMemo(() => {
-    return items.map((item) => {
-      const bill = bills.find((b) => b.poNumber === item.poNumber) || {};
-      return {
-        ...item,
-        billNumber: bill.billNumber || `BILL-${item.poNumber}`,
-        billAmount: bill.billAmount || null,
-        billDate: bill.billDate || '',
-      };
-    });
-  }, [items, bills]);
+  // ── Pending   = planned4 (col AE) NOT null  AND  actual4 (col AF) IS empty
+  // ── Completed = planned4 (col AE) NOT null  AND  actual4 (col AF) NOT empty
+  const isPending = (row) => hasValue(row.planned4) && !hasValue(row.actual4);
+  const isCompleted = (row) => hasValue(row.planned4) && hasValue(row.actual4);
 
   // ── Print PDF generators ──────────────────────────────────────────
   const handlePrintPO = (item) => {
@@ -149,10 +135,11 @@ export function PrintInvoicePage() {
     T(`PO Number: ${item.poNumber}`, c, y, 'right');
     y += 5;
     T('Raipur, Chhattisgarh - 492001', m, y);
-    T(`Date: ${formatDate(item.plannedDate)}`, c, y, 'right');
+    T(`Date: ${formatDate(item.planned4 || item.timestamp)}`, c, y, 'right');
     y += 5;
     T('GST: 22AAAAA0000A1Z5', m, y);
-    T(`Status: ${item.status.toUpperCase()}`, c, y, 'right');
+    const poStatus = isCompleted(item) ? 'COMPLETED' : 'PENDING';
+    T(`Status: ${poStatus}`, c, y, 'right');
     y += 12;
 
     // ── DIVIDER ───────────────────────────────────────────────────────
@@ -327,8 +314,8 @@ export function PrintInvoicePage() {
     T('SHIPMENT & LOGISTICS', m + 4, shipY + 6);
     C(50, 50, 50);
     N(8);
-    T(`Transporter: ${item.transporter || '—'}`, m + 4, shipY + 15);
-    T(`Planned Date: ${formatDate(item.plannedDate)}`, c - 4, shipY + 15, 'right');
+    T(`Transporter: ${item.transporterName || '—'}`, m + 4, shipY + 15);
+    T(`Planned Date: ${formatDate(item.planned4)}`, c - 4, shipY + 15, 'right');
 
     y = shipY + 28;
     L(m, y, c, y, 200); y += 8;
@@ -423,67 +410,55 @@ export function PrintInvoicePage() {
 
   // ── Mark as invoice printed ────────────────────────────────────────
   const handleMarkComplete = (item) => {
-    const now = new Date().toISOString();
-    const delay = calcDelayDays(item.plannedDate, now);
+    const nowTimestamp = makeTimestamp(); // M/D/YYYY H:mm:ss format
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
 
-    const updated = items.map((r) =>
+    // Update FMS state directly
+    const updated = fmsData.map((r) =>
       r.poNumber === item.poNumber
-        ? { ...r, actualDate: now, status: 'completed', delay, updatedBy: userName }
+        ? {
+            ...r,
+            actual4:  nowTimestamp,
+            updatedBy: userName,
+          }
         : r
     );
-    setItems(updated);
+    setFmsData(updated);
 
-    // Push to Supply Check (next stage)
-    const alreadyExists = nextStage.some((t) => t.poNumber === item.poNumber);
-    if (!alreadyExists) {
-      const nextEntry = {
-        poNumber: item.poNumber,
-        vendorName: item.vendorName,
-        totalQuantity: item.totalQuantity,
-        location: item.location,
-        address: item.address,
-        plannedDate: now,
-        actualDate: null,
-        status: 'pending',
-        delay: 0,
-        updatedBy: '',
-        createdAt: new Date().toISOString(),
-      };
-      setNextStage((prev) => [nextEntry, ...prev]);
-    }
-
-    toast(`Invoice for ${item.poNumber} printed!`, 'success');
+    toast(`Invoice for ${item.poNumber} printed successfully!`, 'success');
     setConfirmDialog({ open: false, item: null });
   };
 
   // ── Filtered & searched list ───────────────────────────────────────
   const filteredItems = useMemo(() => {
-    let list = decoratedItems;
-    if (activeTab === 'pending') list = list.filter((r) => r.status === 'pending');
-    else if (activeTab === 'completed') list = list.filter((r) => r.status === 'completed');
+    // Only show items where planned4 (col AE) has a value
+    let list = fmsData.filter((r) => hasValue(r.planned4));
+
+    if (activeTab === 'pending') list = list.filter(isPending);
+    else if (activeTab === 'completed') list = list.filter(isCompleted);
+
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       list = list.filter(
         (r) =>
-          r.poNumber.toLowerCase().includes(q) ||
-          r.vendorName.toLowerCase().includes(q) ||
-          r.location.toLowerCase().includes(q) ||
-          (r.transporter && r.transporter.toLowerCase().includes(q)) ||
-          (r.updatedBy && r.updatedBy.toLowerCase().includes(q))
+          String(r.poNumber || '').toLowerCase().includes(q) ||
+          String(r.vendorName || '').toLowerCase().includes(q) ||
+          String(r.location || '').toLowerCase().includes(q) ||
+          String(r.transporterName || '').toLowerCase().includes(q) ||
+          String(r.updatedBy || '').toLowerCase().includes(q)
       );
     }
     return list;
-  }, [decoratedItems, activeTab, searchTerm]);
+  }, [fmsData, activeTab, searchTerm]);
 
-  const counts = useMemo(
-    () => ({
-      all: decoratedItems.length,
-      pending: decoratedItems.filter((r) => r.status === 'pending').length,
-      completed: decoratedItems.filter((r) => r.status === 'completed').length,
-    }),
-    [decoratedItems]
-  );
+  const counts = useMemo(() => {
+    const staged = fmsData.filter((r) => hasValue(r.planned4));
+    return {
+      all: staged.length,
+      pending: staged.filter(isPending).length,
+      completed: staged.filter(isCompleted).length,
+    };
+  }, [fmsData]);
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
@@ -580,10 +555,10 @@ export function PrintInvoicePage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Invoice Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Invoice Amount</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned Date</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Actual Date</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned 4 (AE)</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Actual 4 (AF)</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Status</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Delay</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Delay 4 (AG)</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Updated By</TableHead>
                 </TableRow>
               </TableHeader>
@@ -602,7 +577,7 @@ export function PrintInvoicePage() {
                           <Button variant="ghost" size="icon" onClick={() => handlePrintInvoice(item)} className="h-8 w-8 text-emerald-600 hover:text-emerald-800 hover:bg-accent rounded-lg cursor-pointer dark:text-emerald-400 dark:hover:text-emerald-300" title="Print Invoice">
                             <Printer className="h-3.5 w-3.5" />
                           </Button>
-                          {item.status === 'pending' && (
+                          {!hasValue(item.actual4) && (
                             <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
                               <Printer className="h-3.5 w-3.5" />Invoice Printed
                             </Button>
@@ -612,8 +587,8 @@ export function PrintInvoicePage() {
                       <TableCell className="pl-4 md:pl-6 py-4 text-left font-semibold text-primary text-xs sm:text-sm">{item.poNumber}</TableCell>
                       <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">{item.vendorName}</TableCell>
                       <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
-                        {item.transporter ? (
-                          <span className="font-medium text-foreground">{item.transporter}</span>
+                        {item.transporterName ? (
+                          <span className="font-medium text-foreground">{item.transporterName}</span>
                         ) : (
                           <span className="italic">—</span>
                         )}
@@ -631,20 +606,20 @@ export function PrintInvoicePage() {
                       </TableCell>
                       <TableCell className="py-4 text-left">
                         <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{formatDate(item.plannedDate)}
+                          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{formatDate(item.planned4)}
                         </span>
                       </TableCell>
                       <TableCell className="py-4 text-left">
-                        {item.actualDate ? (
+                        {hasValue(item.actual4) ? (
                           <span className="text-xs sm:text-sm text-foreground flex items-center gap-1">
-                            <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />{formatDate(item.actualDate)}
+                            <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />{formatDate(item.actual4)}
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground italic">Not yet</span>
                         )}
                       </TableCell>
                       <TableCell className="py-4 text-left">
-                        {item.status === 'completed' ? (
+                        {hasValue(item.actual4) ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                             <CheckCircle2 className="h-3 w-3" />Completed
                           </span>
@@ -655,9 +630,9 @@ export function PrintInvoicePage() {
                         )}
                       </TableCell>
                       <TableCell className="py-4 text-left">
-                        {item.status === 'completed' ? (
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay)}`}>
-                            <Timer className="h-3 w-3" />{item.delay === 0 ? 'On time' : `${item.delay} day${item.delay > 1 ? 's' : ''}`}
+                        {hasValue(item.actual4) ? (
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay4)}`}>
+                            <Timer className="h-3 w-3" />{item.delay4 === 0 ? 'On time' : `${item.delay4} day(s)`}
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground italic">—</span>
@@ -703,7 +678,7 @@ export function PrintInvoicePage() {
               <Printer className="h-5 w-5 text-emerald-500" />Confirm Invoice Printed
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-1">
-              This will mark the invoice as printed and move the PO to Supply Check.
+              This will stamp Actual 4 (col AF) and mark the invoice as printed.
             </DialogDescription>
           </DialogHeader>
           {confirmDialog.item && (
@@ -718,7 +693,7 @@ export function PrintInvoicePage() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Transporter</span>
-                <span className="font-medium">{confirmDialog.item.transporter || '—'}</span>
+                <span className="font-medium">{confirmDialog.item.transporterName || '—'}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Invoice Number</span>
@@ -729,8 +704,8 @@ export function PrintInvoicePage() {
                 <span className="font-medium">{formatAmount(confirmDialog.item.billAmount)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Planned Date</span>
-                <span className="font-medium">{formatDate(confirmDialog.item.plannedDate)}</span>
+                <span className="text-muted-foreground">Planned 4 (AE)</span>
+                <span className="font-medium">{formatDate(confirmDialog.item.planned4)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Processed By</span>
@@ -738,7 +713,7 @@ export function PrintInvoicePage() {
               </div>
               <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                 <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5" />This action cannot be undone. The PO will advance to Supply Check.
+                  <AlertCircle className="h-3.5 w-3.5" />This action will write Actual 4 (col AF) to the FMS sheet.
                 </p>
               </div>
             </div>
@@ -769,14 +744,14 @@ export function PrintInvoicePage() {
                 { label: 'Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
                 { label: 'Location', value: detailDialog.item.location },
                 { label: 'Address', value: detailDialog.item.address },
-                { label: 'Transporter', value: detailDialog.item.transporter || '—' },
+                { label: 'Transporter', value: detailDialog.item.transporterName || '—' },
                 { label: 'Invoice Number', value: detailDialog.item.billNumber },
                 { label: 'Invoice Amount', value: formatAmount(detailDialog.item.billAmount) },
                 { label: 'Invoice Date', value: detailDialog.item.billDate ? new Date(detailDialog.item.billDate).toLocaleDateString('en-IN') : '—' },
-                { label: 'Planned Date', value: formatDate(detailDialog.item.plannedDate) },
-                { label: 'Actual Date', value: detailDialog.item.actualDate ? formatDate(detailDialog.item.actualDate) : 'Not yet' },
-                { label: 'Status', value: detailDialog.item.status === 'completed' ? 'Completed' : 'Pending' },
-                { label: 'Delay', value: detailDialog.item.status === 'completed' ? (detailDialog.item.delay === 0 ? 'On time' : `${detailDialog.item.delay} day(s)`) : '—' },
+                { label: 'Planned 4 (AE)', value: formatDate(detailDialog.item.planned4) },
+                { label: 'Actual 4 (AF)', value: hasValue(detailDialog.item.actual4) ? formatDate(detailDialog.item.actual4) : 'Not yet' },
+                { label: 'Status', value: hasValue(detailDialog.item.actual4) ? 'Completed' : 'Pending' },
+                { label: 'Delay 4 (AG)', value: hasValue(detailDialog.item.actual4) ? (detailDialog.item.delay4 === 0 ? 'On time' : `${detailDialog.item.delay4} day(s)`) : '—' },
                 { label: 'Updated By', value: detailDialog.item.updatedBy || '—' },
               ].map((row) => (
                 <div key={row.label} className="flex items-start justify-between text-sm gap-4">

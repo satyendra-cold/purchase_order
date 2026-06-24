@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { SEED_VENDORS } from '@/utils/seedData';
+import { useSheetData } from '@/hooks/useSheetData';
+import { insertRow, uploadFile } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,10 +42,11 @@ export function GeneratePOPage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
-  // Local storage lists
-  const [purchaseOrders, setPurchaseOrders] = useLocalStorage('procureflow_generated_pos', []);
-  const [locations, setLocations] = useLocalStorage('procureflow_locations', ['RAIPUR', 'DURG', 'BILASPUR']);
-  const [vendors] = useLocalStorage('procureflow_vendors', SEED_VENDORS);
+  // Sheet-backed lists
+  const [purchaseOrders, setPurchaseOrders, , refetchPOs] = useSheetData('FMS', 'poNumber');
+  const [locationData, setLocationData] = useSheetData('Locations', 'name');
+  const [vendors] = useSheetData('Vendors', 'id');
+  const locationNames = locationData.map(l => l.name);
 
   // Search & filter
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,6 +55,9 @@ export function GeneratePOPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editingOriginalPoNumber, setEditingOriginalPoNumber] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [deleteTarget, setDeleteTarget] = useState(null); // poNumber to delete
 
   // Form Fields
   const [poNumber, setPoNumber] = useState('');
@@ -73,6 +77,21 @@ export function GeneratePOPage() {
 
   // Get active vendors list
   const activeVendors = vendors;
+
+  const readFileAsBase64 = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      // strip "data:<mime>;base64," prefix — Apps Script needs raw base64
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const makeTimestamp = () => {
+    const d = new Date();
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
 
   // Open modal for creating new PO
   const handleOpenAddPoModal = () => {
@@ -128,13 +147,12 @@ export function GeneratePOPage() {
       return;
     }
 
-    if (locations.map(l => l.toUpperCase()).includes(formattedLoc)) {
+    if (locationNames.map(l => l.toUpperCase()).includes(formattedLoc)) {
       setLocError('Location constant already exists.');
       return;
     }
 
-    const updatedLocations = [...locations, formattedLoc];
-    setLocations(updatedLocations);
+    setLocationData([...locationData, { name: formattedLoc }]);
     setLocation(formattedLoc); // auto-select the location
     setIsAddingLocInline(false);
     setNewLocationInput('');
@@ -142,104 +160,113 @@ export function GeneratePOPage() {
   };
 
   // Submit PO form (supports Create and Edit)
-  const handleSubmitPo = (e) => {
+  const handleSubmitPo = async (e) => {
     e.preventDefault();
+    if (submittingRef.current) return;
 
-    if (!poNumber.trim()) {
-      toast('Please enter a PO Number.', 'error');
-      return;
-    }
+    // ── Validation ────────────────────────────────────────────────────────────
+    if (!poNumber.trim()) { toast('Please enter a PO Number.', 'error'); return; }
 
-    // Check PO Number uniqueness ONLY if generating a new record
     if (!isEditing) {
       const poExists = purchaseOrders.some(
-        po => po.poNumber.trim().toLowerCase() === poNumber.trim().toLowerCase()
+        po => String(po.poNumber || '').trim().toLowerCase() === poNumber.trim().toLowerCase()
       );
-      if (poExists) {
-        toast(`PO Number "${poNumber.trim()}" is already in use. Please enter a unique PO Number.`, 'error');
-        return;
-      }
+      if (poExists) { toast(`PO Number "${poNumber.trim()}" is already in use.`, 'error'); return; }
     }
 
-    if (!vendorName.trim()) {
-      toast('Please select a Vendor.', 'error');
-      return;
-    }
+    if (!vendorName.trim()) { toast('Please enter a Vendor name.', 'error'); return; }
 
     const qty = parseInt(totalQuantity, 10);
-    if (isNaN(qty) || qty <= 0) {
-      toast('Total Quantity must be a valid positive integer.', 'error');
-      return;
-    }
+    if (isNaN(qty) || qty <= 0) { toast('Total Quantity must be a valid positive integer.', 'error'); return; }
 
-    if (!location) {
-      toast('Please select a Location.', 'error');
-      return;
-    }
+    if (!location) { toast('Please enter a Location.', 'error'); return; }
+    if (!address.trim()) { toast('Please enter the Address.', 'error'); return; }
 
-    if (!address.trim()) {
-      toast('Please enter the Address.', 'error');
-      return;
-    }
-
-    if (isEditing) {
-      // Check if PO Number changed, and if so, check if new PO number is unique
-      if (poNumber.trim().toLowerCase() !== editingOriginalPoNumber.trim().toLowerCase()) {
-        const poExists = purchaseOrders.some(
-          po => po.poNumber.trim().toLowerCase() === poNumber.trim().toLowerCase()
-        );
-        if (poExists) {
-          toast(`PO Number "${poNumber.trim()}" is already in use. Please enter a unique PO Number.`, 'error');
-          return;
-        }
-      }
-
-      // Edit mode: update existing entry matching original key
-      const updatedPOs = purchaseOrders.map(po => 
-        po.poNumber === editingOriginalPoNumber 
-          ? {
-              ...po,
-              poNumber: poNumber.trim(), // save new PO number
-              vendorName: vendorName.trim(),
-              totalQuantity: qty,
-              location,
-              address: address.trim(),
-              poReceivedDate,
-              poExpiredDate,
-              poPdfName,
-              timestamp: new Date().toISOString() // Refresh edit timestamp
-            }
-          : po
+    if (isEditing && poNumber.trim().toLowerCase() !== editingOriginalPoNumber.trim().toLowerCase()) {
+      const poExists = purchaseOrders.some(
+        po => String(po.poNumber || '').trim().toLowerCase() === poNumber.trim().toLowerCase()
       );
-      setPurchaseOrders(updatedPOs);
-      toast(`Purchase Order ${poNumber} updated successfully!`, 'success');
-    } else {
-      // Create mode: add new entry
-      const newPO = {
-        poNumber: poNumber.trim(),
-        vendorName: vendorName.trim(),
-        totalQuantity: qty,
-        location,
-        address: address.trim(),
-        poReceivedDate,
-        poExpiredDate,
-        poPdfName,
-        createdBy: currentUser ? (currentUser.name || currentUser.username) : 'System',
-        timestamp: new Date().toISOString()
-      };
-      setPurchaseOrders([newPO, ...purchaseOrders]);
-      toast(`Purchase Order ${newPO.poNumber} generated successfully!`, 'success');
+      if (poExists) { toast(`PO Number "${poNumber.trim()}" is already in use.`, 'error'); return; }
     }
-    
-    setIsFormOpen(false); // Close Modal
+
+    // ── Lock (ref = synchronous, state = UI) ─────────────────────────────────
+    submittingRef.current = true;
+    setIsSubmitting(true);
+    try {
+      if (isEditing) {
+        setIsFormOpen(false); // close immediately
+
+        let updatedPoPdfName = poPdfName;
+        if (poPdf) {
+          toast('Uploading PDF...', 'info');
+          const base64 = await readFileAsBase64(poPdf);
+          const res = await uploadFile(base64, poPdf.name, poPdf.type || 'application/pdf', '1Hzz1nxg1A_rDaigFZ6ZMxpB2-AzSmIhM');
+          updatedPoPdfName = res.fileUrl || poPdfName;
+        }
+
+        const editTimestamp = makeTimestamp();
+
+        const updatedPOs = purchaseOrders.map(po =>
+          po.poNumber === editingOriginalPoNumber
+            ? { ...po, poNumber: poNumber.trim(), vendorName: vendorName.trim(), totalQuantity: qty, location, address: address.trim(), poReceivedDate, poExpiredDate, poPdfName: updatedPoPdfName, timestamp: editTimestamp }
+            : po
+        );
+        setPurchaseOrders(updatedPOs);
+        toast(`Purchase Order ${poNumber.trim()} updated successfully!`, 'success');
+      } else {
+        // ── Create: close form immediately, submit in background ──────────────
+        const createdBy = currentUser ? (currentUser.name || currentUser.username) : 'System';
+        const existingSerials = purchaseOrders
+          .map(po => parseInt(po.serialNo || 0, 10))
+          .filter(n => !isNaN(n) && n > 0);
+        const nextSerialNo = existingSerials.length > 0 ? Math.max(...existingSerials) + 1 : 1;
+
+        const timestamp = makeTimestamp();
+
+        // Close form right away so user sees the page
+        setIsFormOpen(false);
+
+        let poPdfUrl = '';
+        if (poPdf) {
+          toast('Uploading PDF...', 'info');
+          const base64 = await readFileAsBase64(poPdf);
+          const res = await uploadFile(base64, poPdf.name, poPdf.type || 'application/pdf', '1Hzz1nxg1A_rDaigFZ6ZMxpB2-AzSmIhM');
+          poPdfUrl = res.fileUrl || '';
+        }
+
+        const rowData = [
+          timestamp,
+          nextSerialNo,
+          poNumber.trim(),
+          vendorName.trim(),
+          qty,
+          location,
+          address.trim(),
+          createdBy,
+          poReceivedDate,
+          poExpiredDate,
+          poPdfUrl,
+        ];
+
+        await insertRow('FMS', rowData);
+        toast(`Purchase Order ${poNumber.trim()} saved!`, 'success');
+        refetchPOs();
+      }
+    } catch (err) {
+      toast(`Failed: ${err.message}`, 'error');
+      console.error('[GeneratePO] submit failed:', err);
+    } finally {
+      submittingRef.current = false;
+      setIsSubmitting(false);
+    }
   };
 
   // Delete PO Record
-  const handleDeletePo = (poNo) => {
-    if (window.confirm(`Are you sure you want to delete purchase order ${poNo}?`)) {
-      setPurchaseOrders(purchaseOrders.filter(po => po.poNumber !== poNo));
-      toast(`Purchase Order ${poNo} deleted successfully.`, 'success');
-    }
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    setPurchaseOrders(purchaseOrders.filter(po => po.poNumber !== deleteTarget));
+    toast(`Purchase Order ${deleteTarget} deleted successfully.`, 'success');
+    setDeleteTarget(null);
   };
 
   // Copy PO details to clipboard
@@ -250,29 +277,27 @@ export function GeneratePOPage() {
       .catch(() => toast('Failed to copy text', 'error'));
   };
 
-  // Format Date Helper
-  const formatTimestamp = (isoString) => {
+  // Format Date Helper — output: M/D/YYYY H:mm:ss
+  const formatTimestamp = (ts) => {
+    if (!ts) return '';
+    const s = String(ts);
+    if (/^\d{1,2}\/\d{1,2}\/\d{4} \d{1,2}:\d{2}:\d{2}$/.test(s)) return s;
     try {
-      const date = new Date(isoString);
-      return date.toLocaleString('en-IN', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
+      const d = new Date(s);
+      if (isNaN(d)) return s;
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     } catch {
-      return isoString;
+      return s;
     }
   };
 
   // Filter purchase orders
-  const filteredPOs = purchaseOrders.filter(po => 
-    po.poNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    po.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    po.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    po.createdBy.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredPOs = purchaseOrders.filter(po =>
+    String(po.poNumber   || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(po.vendorName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(po.location   || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    String(po.createdBy  || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -322,6 +347,7 @@ export function GeneratePOPage() {
               <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border">
                 <TableRow>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Actions</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">#</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor Name</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Total Quantity</TableHead>
@@ -362,13 +388,18 @@ export function GeneratePOPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleDeletePo(po.poNumber)}
+                            onClick={() => setDeleteTarget(po.poNumber)}
                             className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
                             title="Delete Record"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
+                      </TableCell>
+
+                      {/* Serial No */}
+                      <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground font-mono">
+                        {po.serialNo || '-'}
                       </TableCell>
 
                       {/* PO Number */}
@@ -383,7 +414,7 @@ export function GeneratePOPage() {
 
                       {/* Total Quantity */}
                       <TableCell className="py-4 text-left font-bold text-xs sm:text-sm text-foreground">
-                        {po.totalQuantity.toLocaleString()}
+                        {Number(po.totalQuantity || 0).toLocaleString()}
                       </TableCell>
 
                       {/* Location Badge */}
@@ -423,10 +454,32 @@ export function GeneratePOPage() {
                       {/* PO PDF */}
                       <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
                         {po.poPdfName ? (
-                          <span className="inline-flex items-center gap-1 font-medium text-primary">
-                            <FilePlus2 className="h-3.5 w-3.5" />
-                            {po.poPdfName}
-                          </span>
+                          String(po.poPdfName).startsWith('data:') ? (
+                            <a
+                              href={po.poPdfName}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                            >
+                              <FilePlus2 className="h-3.5 w-3.5" />
+                              View File
+                            </a>
+                          ) : String(po.poPdfName).startsWith('http') ? (
+                            <a
+                              href={po.poPdfName}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                            >
+                              <FilePlus2 className="h-3.5 w-3.5" />
+                              View PDF
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 font-medium text-primary">
+                              <FilePlus2 className="h-3.5 w-3.5" />
+                              {po.poPdfName}
+                            </span>
+                          )
                         ) : '-'}
                       </TableCell>
 
@@ -434,7 +487,7 @@ export function GeneratePOPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-12 text-center text-muted-foreground text-sm">
+                    <TableCell colSpan={11} className="py-12 text-center text-muted-foreground text-sm">
                       No purchase orders found. Click "Add PO" to generate your first record!
                     </TableCell>
                   </TableRow>
@@ -498,9 +551,14 @@ export function GeneratePOPage() {
                     </SelectContent>
                   </Select>
                 ) : (
-                  <div className="text-xs text-muted-foreground p-3 border rounded-xl border-dashed">
-                    No active vendors found. Please add vendors in Settings.
-                  </div>
+                  <Input
+                    id="vendorName"
+                    value={vendorName}
+                    onChange={(e) => setVendorName(e.target.value)}
+                    placeholder="Type vendor name..."
+                    className="rounded-xl bg-background border-input"
+                    required
+                  />
                 )}
               </div>
 
@@ -576,19 +634,28 @@ export function GeneratePOPage() {
                       </p>
                     )}
                   </div>
-                ) : (
+                ) : locationNames.length > 0 ? (
                   <Select value={location} onValueChange={setLocation}>
                     <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-10">
                       <SelectValue placeholder="Select location" />
                     </SelectTrigger>
                     <SelectContent className="bg-card border-border">
-                      {locations.map((loc) => (
+                      {locationNames.map((loc) => (
                         <SelectItem key={loc} value={loc} className="text-xs focus:bg-accent cursor-pointer">
                           {loc}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                ) : (
+                  <Input
+                    id="location"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value.toUpperCase())}
+                    placeholder="Type location e.g. BILASPUR"
+                    className="rounded-xl bg-background border-input uppercase"
+                    required
+                  />
                 )}
               </div>
 
@@ -678,12 +745,43 @@ export function GeneratePOPage() {
               </Button>
               <Button
                 type="submit"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl cursor-pointer"
+                disabled={isSubmitting}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {isEditing ? 'Save Changes' : 'Generate PO'}
+                {isSubmitting ? 'Saving...' : isEditing ? 'Save Changes' : 'Generate PO'}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={() => setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-[400px] bg-card border-border rounded-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-destructive" />
+              Delete Purchase Order
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground mt-1">
+              Are you sure you want to delete <span className="font-semibold text-foreground">{deleteTarget}</span>? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-4 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              className="border-border hover:bg-accent rounded-xl cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl cursor-pointer"
+            >
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

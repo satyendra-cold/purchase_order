@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSheetData } from '@/hooks/useSheetData';
 import { AVAILABLE_PAGES, AVAILABLE_ROLES } from '@/utils/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,8 +52,6 @@ import {
   CreditCard, 
   Package
 } from 'lucide-react';
-
-import { SEED_VENDORS, SEED_TRANSPORTERS } from '@/utils/seedData';
 
 const PAGE_ICON_MAP = {
   'Dashboard': LayoutDashboard,
@@ -199,7 +197,7 @@ export function SettingsPage() {
   // ----------------------------------------------------
   // VENDOR DIRECTORY STATE & HANDLERS
   // ----------------------------------------------------
-  const [vendors, setVendors] = useLocalStorage('procureflow_vendors', SEED_VENDORS);
+  const [vendors, setVendors] = useSheetData('Vendors', 'id');
   const [isVendorModalOpen, setIsVendorModalOpen] = useState(false);
   const [isEditingVendor, setIsEditingVendor] = useState(false);
   const [vendorErrorMsg, setVendorErrorMsg] = useState('');
@@ -285,7 +283,7 @@ export function SettingsPage() {
   // ----------------------------------------------------
   // TRANSPORTER STATE & HANDLERS
   // ----------------------------------------------------
-  const [transporters, setTransporters] = useLocalStorage('procureflow_transporters', SEED_TRANSPORTERS);
+  const [transporters, setTransporters] = useSheetData('Transporters', 'id');
   const [isTransporterModalOpen, setIsTransporterModalOpen] = useState(false);
   const [isEditingTransporter, setIsEditingTransporter] = useState(false);
   const [transporterErrorMsg, setTransporterErrorMsg] = useState('');

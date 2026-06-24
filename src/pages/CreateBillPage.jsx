@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSheetData } from '@/hooks/useSheetData';
+import { uploadFile } from '@/services/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -27,6 +28,7 @@ import {
   CalendarCheck2,
   Eye,
   FileDown,
+  FilePlus2,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 
@@ -36,7 +38,10 @@ import jsPDF from 'jspdf';
 const formatDate = (isoString) => {
   if (!isoString) return '—';
   try {
-    return new Date(isoString).toLocaleString('en-IN', {
+    const d = new Date(isoString);
+    // Reject Excel epoch glitches (year < 1990)
+    if (isNaN(d) || d.getFullYear() < 1990) return isoString;
+    return d.toLocaleString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -49,14 +54,34 @@ const formatDate = (isoString) => {
   }
 };
 
-const formatReceivedDate = (bill) =>
-  bill.poReceivedDate ||
-  (bill.plannedDate
-    ? new Date(bill.plannedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-    : '-');
+/** Check if a value is not null and not empty */
+const isValidDate = (val) => {
+  return val != null && String(val).trim() !== '';
+};
+
+/** Make a timestamp string in M/D/YYYY H:mm:ss format — same as FMS sheet */
+const makeTimestamp = () => {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
+/** Convert a date string (e.g. YYYY-MM-DD) into M/D/YYYY H:mm:ss format */
+const formatToTimestamp = (dateVal) => {
+  if (!dateVal) return '';
+  const match = String(dateVal).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (match) {
+    const [_, year, month, day] = match;
+    return `${parseInt(month, 10)}/${parseInt(day, 10)}/${year} 00:00:00`;
+  }
+  const d = new Date(dateVal);
+  if (isNaN(d)) return dateVal;
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
 
 const formatAmount = (amount) => {
-  if (amount == null || isNaN(amount)) return '-';
+  if (amount == null || isNaN(amount) || amount === '') return '-';
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
 };
 
@@ -92,100 +117,46 @@ export function CreateBillPage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
-  // Read PO list (written by GeneratePOPage)
-  const [purchaseOrders] = useLocalStorage('procureflow_generated_pos', []);
-
-  // Bill records owned by this page
-  const [bills, setBills] = useLocalStorage('procureflow_bills', []);
-
-  // Ready products – we push into this when a bill is completed
-  const [readyProducts, setReadyProducts] = useLocalStorage('procureflow_ready_products', []);
+  // FMS is the single source of truth
+  const [fmsData, setFmsData, fmsLoading] = useSheetData('FMS', 'poNumber');
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
-  const [confirmDialog, setConfirmDialog] = useState({ open: false, bill: null });
-  const [detailDialog, setDetailDialog] = useState({ open: false, bill: null });
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, row: null });
+  const [detailDialog, setDetailDialog] = useState({ open: false, row: null });
 
   // Create Bill dialog
-  const [createBillDialog, setCreateBillDialog] = useState({ open: false, bill: null });
+  const [createBillDialog, setCreateBillDialog] = useState({ open: false, row: null });
   const [billAmountInput, setBillAmountInput] = useState('');
   const [billDateInput, setBillDateInput] = useState('');
-  const [billPdfInput, setBillPdfInput] = useState(null);
+  const [billPdfFile, setBillPdfFile] = useState(null);
   const [billPdfNameInput, setBillPdfNameInput] = useState('');
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
 
-  // ── Auto-sync: add bill entries for POs that don't have one yet ──
-  useEffect(() => {
-    if (!Array.isArray(purchaseOrders) || purchaseOrders.length === 0) return;
-
-    const existingPoNumbers = new Set(bills.map((b) => b.poNumber));
-    const newBills = purchaseOrders
-      .filter((po) => !existingPoNumbers.has(po.poNumber))
-      .map((po) => ({
-        poNumber: po.poNumber,
-        vendorName: po.vendorName,
-        totalQuantity: po.totalQuantity,
-        location: po.location,
-        address: po.address,
-        poReceivedDate: po.poReceivedDate || po.timestamp?.split('T')[0] || '',
-        poPdfName: po.poPdfName || '',
-        plannedDate: po.poReceivedDate ? new Date(po.poReceivedDate).toISOString() : po.timestamp,
-        billNumber: '',
-        billAmount: null,
-        billDate: '',
-        billPdfName: '',
-        actualDate: null,
-        status: 'pending',
-        delay: 0,
-        updatedBy: '',
-        createdAt: new Date().toISOString(),
-      }));
-
-    if (newBills.length > 0) {
-      setBills((prev) => [...newBills, ...prev]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [purchaseOrders]);
+  // ── Pending   = planned1 (col L) NOT null  AND  actual1 (col M) IS null
+  // ── Completed = planned1 (col L) NOT null  AND  actual1 (col M) NOT null
+  const isPending = (row) => isValidDate(row.planned1) && !isValidDate(row.actual1);
+  const isCompleted = (row) => isValidDate(row.planned1) && isValidDate(row.actual1);
 
   // ── Mark bill as completed ─────────────────────────────────────────
-  const handleMarkComplete = (bill) => {
-    const now = new Date().toISOString();
-    const delay = calcDelayDays(bill.plannedDate, now);
+  const handleMarkComplete = (row) => {
+    const nowTimestamp = makeTimestamp(); // M/D/YYYY H:mm:ss — saved to col M
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
 
-    // Update bill record
-    const updatedBills = bills.map((b) =>
-      b.poNumber === bill.poNumber
-        ? { ...b, actualDate: now, status: 'completed', delay, updatedBy: userName }
-        : b
+    const updatedFms = fmsData.map((r) =>
+      r.poNumber === row.poNumber
+        ? { ...r, actual1: nowTimestamp, updatedBy: userName }
+        : r
     );
-    setBills(updatedBills);
+    setFmsData(updatedFms);
 
-    // Push to ready products (only if not already there)
-    const alreadyInReady = readyProducts.some((r) => r.poNumber === bill.poNumber);
-    if (!alreadyInReady) {
-      const readyEntry = {
-        poNumber: bill.poNumber,
-        vendorName: bill.vendorName,
-        totalQuantity: bill.totalQuantity,
-        location: bill.location,
-        address: bill.address,
-        plannedDate: now, // The bill's actual completion date becomes the planned date for ready product
-        actualDate: null,
-        status: 'pending',
-        delay: 0,
-        updatedBy: '',
-        createdAt: new Date().toISOString(),
-      };
-      setReadyProducts((prev) => [readyEntry, ...prev]);
-    }
-
-    toast(`Bill for ${bill.poNumber} marked as completed!`, 'success');
-    setConfirmDialog({ open: false, bill: null });
+    toast(`Bill for ${row.poNumber} marked as completed!`, 'success');
+    setConfirmDialog({ open: false, row: null });
   };
 
   // ── Generate Bill PDF ───────────────────────────────────────────────
-  const handleDownloadPdf = (bill) => {
+  const handleDownloadPdf = (row) => {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const pw = 210;
     const m = 15;
@@ -213,7 +184,7 @@ export function CreateBillPage() {
     C(60, 60, 60);
     N(9);
     T('123 Business Park, Industrial Area', m, y);
-    T(`Invoice #: ${bill.billNumber || `BILL-${bill.poNumber}`}`, c, y, 'right');
+    T(`Invoice #: ${row.billNumber || `BILL-${row.poNumber}`}`, c, y, 'right');
     y += 5;
     T('Raipur, Chhattisgarh - 492001', m, y);
     T(`Date: ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`, c, y, 'right');
@@ -222,7 +193,7 @@ export function CreateBillPage() {
     B(9);
     T('GST: 22AAAAA0000A1Z5', m, y);
     N(9);
-    T(`PO #: ${bill.poNumber}`, c, y, 'right');
+    T(`PO #: ${row.poNumber}`, c, y, 'right');
     y += 12;
 
     // ── DIVIDER ───────────────────────────────────────────────────────
@@ -237,10 +208,10 @@ export function CreateBillPage() {
     T('BILL TO', m + 4, y + 6);
     C(50, 50, 50);
     N(10);
-    T(bill.vendorName, m + 4, y + 16);
+    T(row.vendorName, m + 4, y + 16);
     N(8);
-    T(bill.location, m + 4, y + 23);
-    T(bill.address, c - 4, y + 23, 'right');
+    T(row.location, m + 4, y + 23);
+    T(row.address, c - 4, y + 23, 'right');
 
     // ── SHIP TO BOX ───────────────────────────────────────────────────
     const shipY = y + 34;
@@ -252,15 +223,15 @@ export function CreateBillPage() {
     T('SHIP TO', m + 4, shipY + 6);
     C(50, 50, 50);
     N(8);
-    T(bill.location, m + 4, shipY + 15);
-    T(bill.address, c - 4, shipY + 15, 'right');
+    T(row.location, m + 4, shipY + 15);
+    T(row.address, c - 4, shipY + 15, 'right');
 
     y = shipY + 28;
     L(m, y, c, y, 200); y += 8;
 
     // ── ITEM TABLE ────────────────────────────────────────────────────
     const cols = [
-      { x: m, w: 8,  h: 8, label: '#' },
+      { x: m, w: 8, h: 8, label: '#' },
       { x: m + 8, w: 72, h: 8, label: 'DESCRIPTION' },
       { x: m + 80, w: 25, h: 8, label: 'QTY' },
       { x: m + 105, w: 35, h: 8, label: 'RATE' },
@@ -276,25 +247,26 @@ export function CreateBillPage() {
     y += 8;
 
     // Table body row
-    const rate = bill.billAmount && bill.totalQuantity
-      ? Math.round(bill.billAmount / bill.totalQuantity)
+    const billAmt = parseFloat(row.billAmount) || null;
+    const rate = billAmt && row.totalQuantity
+      ? Math.round(billAmt / row.totalQuantity)
       : null;
     const rowY = y;
     R(m, rowY, cols.reduce((s, c) => s + c.w, 0), 22);
     C(40, 40, 40);
     N(8);
     T('1', cols[0].x + cols[0].w / 2, rowY + 9, 'center');
-    T(`${bill.poNumber} - ${bill.vendorName}`, cols[1].x + 3, rowY + 9, 'left');
-    T(bill.totalQuantity?.toLocaleString() || '—', cols[2].x + cols[2].w / 2, rowY + 9, 'center');
+    T(`${row.poNumber} - ${row.vendorName}`, cols[1].x + 3, rowY + 9, 'left');
+    T(row.totalQuantity?.toLocaleString() || '—', cols[2].x + cols[2].w / 2, rowY + 9, 'center');
     T(rate !== null ? `₹ ${rate.toLocaleString('en-IN')}` : '—', cols[3].x + cols[3].w / 2, rowY + 9, 'center');
-    T(bill.billAmount ? formatAmount(bill.billAmount) : '—', cols[4].x + cols[4].w / 2, rowY + 9, 'center');
+    T(billAmt ? formatAmount(billAmt) : '—', cols[4].x + cols[4].w / 2, rowY + 9, 'center');
 
     // Bottom border
     L(m, rowY + 22, c, rowY + 22, 220);
     y = rowY + 28;
 
     // ── AMOUNT SUMMARY ────────────────────────────────────────────────
-    if (bill.billAmount) {
+    if (billAmt) {
       const boxX = c - 65;
       const boxW = 50;
       const amtY = y;
@@ -310,7 +282,7 @@ export function CreateBillPage() {
       N(8);
       T('Subtotal:', boxX + 3, amtY + 13);
       C(40, 40, 40);
-      T(formatAmount(bill.billAmount), boxX + boxW - 3, amtY + 13, 'right');
+      T(formatAmount(billAmt), boxX + boxW - 3, amtY + 13, 'right');
 
       C(60, 60, 60);
       N(8);
@@ -323,7 +295,7 @@ export function CreateBillPage() {
       C(25, 55, 109);
       B(10);
       T('TOTAL:', boxX + 3, amtY + 32);
-      T(formatAmount(bill.billAmount), boxX + boxW - 3, amtY + 32, 'right');
+      T(formatAmount(billAmt), boxX + boxW - 3, amtY + 32, 'right');
 
       y = amtY + 42;
     }
@@ -342,12 +314,12 @@ export function CreateBillPage() {
       y += 5.5;
     };
 
-    tlLeft('Planned', bill.plannedDate ? formatDate(bill.plannedDate) : '—');
-    tlLeft('Actual', bill.actualDate ? formatDate(bill.actualDate) : 'Not yet');
-    tlLeft('Status', bill.status === 'completed' ? 'Completed' : 'Pending');
-    if (bill.status === 'completed') {
-      tlLeft('Delay', bill.delay === 0 ? 'On time' : `${bill.delay} day${bill.delay > 1 ? 's' : ''}`);
-      tlLeft('Completed By', bill.updatedBy || '—');
+    tlLeft('Planned', isValidDate(row.planned1) ? formatDate(row.planned1) : '—');
+    tlLeft('Actual', isValidDate(row.actual1) ? formatDate(row.actual1) : 'Not yet');
+    tlLeft('Status', isValidDate(row.actual1) ? 'Completed' : 'Pending');
+    if (isValidDate(row.actual1)) {
+      const delay = row.delay1 || 0;
+      tlLeft('Delay', delay === 0 ? 'On time' : `${delay} day${delay > 1 ? 's' : ''}`);
     }
 
     y += 4;
@@ -373,13 +345,13 @@ export function CreateBillPage() {
     y += 4;
     T(`Page 1/1`, c, y, 'right');
 
-    doc.save(`Bill_${bill.poNumber}.pdf`);
+    doc.save(`Bill_${row.poNumber}.pdf`);
   };
 
   // ── Create Bill handler ────────────────────────────────────────────
-  const handleCreateBill = () => {
-    const bill = createBillDialog.bill;
-    if (!bill) return;
+  const handleCreateBill = async () => {
+    const row = createBillDialog.row;
+    if (!row) return;
 
     const amount = parseFloat(billAmountInput);
     if (isNaN(amount) || amount <= 0) {
@@ -392,54 +364,81 @@ export function CreateBillPage() {
       return;
     }
 
-    const updatedBills = bills.map((b) =>
-      b.poNumber === bill.poNumber
+    let billPdfUrl = row.billPdf || '';
+
+    // Upload PDF if a new file is selected
+    if (billPdfFile) {
+      setIsUploadingPdf(true);
+      try {
+        toast('Uploading PDF…', 'info');
+        const base64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result.split(',')[1]);
+          reader.onerror = reject;
+          reader.readAsDataURL(billPdfFile);
+        });
+        const res = await uploadFile(base64, billPdfFile.name, billPdfFile.type || 'application/pdf', '1Hzz1nxg1A_rDaigFZ6ZMxpB2-AzSmIhM');
+        billPdfUrl = res.fileUrl || '';
+      } catch (err) {
+        toast(`PDF upload failed: ${err.message}`, 'error');
+        setIsUploadingPdf(false);
+        return;
+      } finally {
+        setIsUploadingPdf(false);
+      }
+    }
+
+    const updatedFms = fmsData.map((r) =>
+      r.poNumber === row.poNumber
         ? {
-            ...b,
-            billNumber: `BILL-${bill.poNumber}`,
-            billAmount: amount,
-            billDate: billDateInput,
-            billPdfName: billPdfNameInput,
-          }
-        : b
+          ...r,
+          billNumber: `BILL-${row.poNumber}`,
+          billAmount: amount,
+          billDate: billDateInput,
+          billPdf: billPdfUrl,
+          actual1: makeTimestamp(), // set actual1 in M/D/YYYY H:mm:ss format immediately
+        }
+        : r
     );
-    setBills(updatedBills);
-    toast(`Bill for ${bill.poNumber} created successfully!`, 'success');
-    setCreateBillDialog({ open: false, bill: null });
+    setFmsData(updatedFms);
+    toast(`Bill for ${row.poNumber} created successfully!`, 'success');
+    setCreateBillDialog({ open: false, row: null });
   };
 
   // ── Filtered & searched list ───────────────────────────────────────
-  const filteredBills = useMemo(() => {
-    let list = bills;
+  const filteredRows = useMemo(() => {
+    // Only show rows that have planned1 set (are in the "Create Bill" stage)
+    let list = fmsData.filter((r) => isValidDate(r.planned1));
 
     // Tab filter
-    if (activeTab === 'pending') list = list.filter((b) => b.status === 'pending');
-    else if (activeTab === 'completed') list = list.filter((b) => b.status === 'completed');
+    if (activeTab === 'pending') list = list.filter(isPending);
+    else if (activeTab === 'completed') list = list.filter(isCompleted);
 
     // Search filter
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       list = list.filter(
-        (b) =>
-          b.poNumber.toLowerCase().includes(q) ||
-          b.vendorName.toLowerCase().includes(q) ||
-          b.location.toLowerCase().includes(q) ||
-          (b.updatedBy && b.updatedBy.toLowerCase().includes(q))
+        (r) =>
+          String(r.poNumber || '').toLowerCase().includes(q) ||
+          String(r.vendorName || '').toLowerCase().includes(q) ||
+          String(r.location || '').toLowerCase().includes(q)
       );
     }
 
     return list;
-  }, [bills, activeTab, searchTerm]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fmsData, activeTab, searchTerm]);
 
   // ── Tab counts ─────────────────────────────────────────────────────
-  const counts = useMemo(
-    () => ({
-      all: bills.length,
-      pending: bills.filter((b) => b.status === 'pending').length,
-      completed: bills.filter((b) => b.status === 'completed').length,
-    }),
-    [bills]
-  );
+  const counts = useMemo(() => {
+    const staged = fmsData.filter((r) => isValidDate(r.planned1));
+    return {
+      all: staged.length,
+      pending: staged.filter(isPending).length,
+      completed: staged.filter(isCompleted).length,
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fmsData]);
 
   // ─── Render ────────────────────────────────────────────────────────
   return (
@@ -451,7 +450,8 @@ export function CreateBillPage() {
             Create Bill
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground mt-1">
-            Process purchase orders by verifying and completing billing. Completed bills move automatically to Ready Product.
+            Process purchase orders by verifying and completing billing.
+            Rows appear here when <strong>Planned 1</strong> (col L) is set and <strong>Actual 1</strong> (col M) is empty = Pending.
           </p>
         </div>
       </div>
@@ -466,7 +466,7 @@ export function CreateBillPage() {
             </div>
             <div className="text-left">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Bills</p>
-              <p className="text-xl font-bold text-foreground">{counts.all}</p>
+              <p className="text-xl font-bold text-foreground">{fmsLoading ? '…' : counts.all}</p>
             </div>
           </CardContent>
         </Card>
@@ -478,7 +478,7 @@ export function CreateBillPage() {
             </div>
             <div className="text-left">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pending</p>
-              <p className="text-xl font-bold text-foreground">{counts.pending}</p>
+              <p className="text-xl font-bold text-foreground">{fmsLoading ? '…' : counts.pending}</p>
             </div>
           </CardContent>
         </Card>
@@ -490,7 +490,7 @@ export function CreateBillPage() {
             </div>
             <div className="text-left">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Completed</p>
-              <p className="text-xl font-bold text-foreground">{counts.completed}</p>
+              <p className="text-xl font-bold text-foreground">{fmsLoading ? '…' : counts.completed}</p>
             </div>
           </CardContent>
         </Card>
@@ -511,22 +511,21 @@ export function CreateBillPage() {
               />
             </div>
             <div className="text-xs text-muted-foreground hidden md:inline-block">
-              {filteredBills.length} record(s)
+              {filteredRows.length} record(s)
             </div>
           </div>
 
-          {/* Right: status tabs + add button */}
+          {/* Right: status tabs */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
               {TABS.map((tab) => (
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
-                    activeTab === tab.key
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${activeTab === tab.key
                       ? 'bg-card text-foreground shadow-sm'
                       : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                   <span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
@@ -554,7 +553,7 @@ export function CreateBillPage() {
                     Location
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    PO Received Date
+                    Planned 1 (L)
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Bill Number
@@ -566,7 +565,7 @@ export function CreateBillPage() {
                     Bill Date
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Actual Date
+                    Actual 1 (M)
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Status
@@ -575,158 +574,184 @@ export function CreateBillPage() {
                     Delay
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Updated By
+                    Bill PDF
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredBills.length > 0 ? (
-                  filteredBills.map((bill) => (
-                    <TableRow
-                      key={bill.poNumber}
-                      className="hover:bg-accent/40 border-b border-border transition-colors"
-                    >
-                      {/* Actions */}
-                      <TableCell className="pl-4 md:pl-6 py-4 text-left">
-                        <div className="flex items-center gap-1.5">
-                          {/* View detail */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDetailDialog({ open: true, bill })}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                            title="View details"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                          {!bill.billNumber ? (
+                {fmsLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={12} className="py-16 text-center text-muted-foreground text-sm">
+                      Loading…
+                    </TableCell>
+                  </TableRow>
+                ) : filteredRows.length > 0 ? (
+                  filteredRows.map((row) => {
+                    const pending = isPending(row);
+                    const completed = isCompleted(row);
+                    const delay = row.delay1 || 0;
+
+                    return (
+                      <TableRow
+                        key={row.poNumber}
+                        className="hover:bg-accent/40 border-b border-border transition-colors"
+                      >
+                        {/* Actions */}
+                        <TableCell className="pl-4 md:pl-6 py-4 text-left">
+                          <div className="flex items-center gap-1.5">
+                            {/* View detail */}
                             <Button
-                              onClick={() => {
-                                setBillAmountInput('');
-                                setBillDateInput(new Date().toISOString().split('T')[0]);
-                                setBillPdfInput(null);
-                                setBillPdfNameInput('');
-                                setCreateBillDialog({ open: true, bill });
-                              }}
-                              className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setDetailDialog({ open: true, row })}
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
+                              title="View details"
                             >
-                              <Receipt className="h-3.5 w-3.5" />
-                              Create Bill
+                              <Eye className="h-3.5 w-3.5" />
                             </Button>
-                          ) : bill.status === 'pending' ? (
-                            <Button
-                              onClick={() => setConfirmDialog({ open: true, bill })}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Mark Complete
-                            </Button>
+
+                            {!row.billNumber ? (
+                              // No bill yet → Create Bill button
+                              <Button
+                                onClick={() => {
+                                  setBillAmountInput('');
+                                  setBillDateInput(new Date().toISOString().split('T')[0]);
+                                  setBillPdfFile(null);
+                                  setBillPdfNameInput('');
+                                  setCreateBillDialog({ open: true, row });
+                                }}
+                                className="bg-blue-600 hover:bg-blue-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                              >
+                                <Receipt className="h-3.5 w-3.5" />
+                                Create Bill
+                              </Button>
+                            ) : !completed ? (
+                              // Bill created, not completed yet → Mark Complete
+                              <Button
+                                onClick={() => setConfirmDialog({ open: true, row })}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Mark Complete
+                              </Button>
+                            ) : (
+                              // Completed → Download PDF
+                              <Button
+                                onClick={() => handleDownloadPdf(row)}
+                                className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                              >
+                                <FileDown className="h-3.5 w-3.5" />
+                                Bill PDF
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+
+                        {/* PO Number */}
+                        <TableCell className="py-4 text-left font-semibold text-primary text-xs sm:text-sm">
+                          {row.poNumber}
+                        </TableCell>
+
+                        {/* Vendor Name */}
+                        <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">
+                          {row.vendorName}
+                        </TableCell>
+
+                        {/* Location */}
+                        <TableCell className="py-4 text-left">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
+                            <MapPin className="h-2.5 w-2.5 text-muted-foreground" />
+                            {row.location}
+                          </span>
+                        </TableCell>
+
+                        {/* Planned 1 (Col L) */}
+                        <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+                          {isValidDate(row.planned1) ? formatDate(row.planned1) : '—'}
+                        </TableCell>
+
+                        {/* Bill Number */}
+                        <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
+                          {row.billNumber || '-'}
+                        </TableCell>
+
+                        {/* Bill Amount */}
+                        <TableCell className="py-4 text-left text-xs sm:text-sm text-foreground">
+                          {formatAmount(row.billAmount)}
+                        </TableCell>
+
+                        {/* Bill Date */}
+                        <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+                          {row.billDate || '-'}
+                        </TableCell>
+
+                        {/* Actual 1 (Col M) */}
+                        <TableCell className="py-4 text-left">
+                          {completed ? (
+                            <span className="text-xs sm:text-sm text-foreground flex items-center gap-1">
+                              <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />
+                              {formatDate(row.actual1)}
+                            </span>
                           ) : (
-                            <Button
-                              onClick={() => handleDownloadPdf(bill)}
-                              className="bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
-                            >
-                              <FileDown className="h-3.5 w-3.5" />
-                              Bill PDF
-                            </Button>
+                            <span className="text-xs text-muted-foreground italic">Not yet</span>
                           )}
-                        </div>
-                      </TableCell>
+                        </TableCell>
 
-                      {/* PO Number */}
-                      <TableCell className="py-4 text-left font-semibold text-primary text-xs sm:text-sm">
-                        {bill.poNumber}
-                      </TableCell>
+                        {/* Status Badge */}
+                        <TableCell className="py-4 text-left">
+                          {completed ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Completed
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                              <Clock className="h-3 w-3" />
+                              Pending
+                            </span>
+                          )}
+                        </TableCell>
 
-                      {/* Vendor Name */}
-                      <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">
-                        {bill.vendorName}
-                      </TableCell>
+                        {/* Delay */}
+                        <TableCell className="py-4 text-left">
+                          {completed ? (
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(delay)}`}
+                            >
+                              <Timer className="h-3 w-3" />
+                              {delay === 0 ? 'On time' : `${delay} day${delay > 1 ? 's' : ''}`}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">—</span>
+                          )}
+                        </TableCell>
 
-                      {/* Location */}
-                      <TableCell className="py-4 text-left">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
-                          <MapPin className="h-2.5 w-2.5 text-muted-foreground" />
-                          {bill.location}
-                        </span>
-                      </TableCell>
-
-                      {/* PO Received Date */}
-                      <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
-                        {formatReceivedDate(bill)}
-                      </TableCell>
-
-                      {/* Bill Number */}
-                      <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
-                        {bill.billNumber || '-'}
-                      </TableCell>
-
-                      {/* Bill Amount */}
-                      <TableCell className="py-4 text-left text-xs sm:text-sm text-foreground">
-                        {formatAmount(bill.billAmount)}
-                      </TableCell>
-
-                      {/* Bill Date */}
-                      <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
-                        {bill.billDate || '-'}
-                      </TableCell>
-
-                      {/* Actual Date */}
-                      <TableCell className="py-4 text-left">
-                        {bill.actualDate ? (
-                          <span className="text-xs sm:text-sm text-foreground flex items-center gap-1">
-                            <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />
-                            {formatDate(bill.actualDate)}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">Not yet</span>
-                        )}
-                      </TableCell>
-
-                      {/* Status Badge */}
-                      <TableCell className="py-4 text-left">
-                        {bill.status === 'completed' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Completed
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                            <Clock className="h-3 w-3" />
-                            Pending
-                          </span>
-                        )}
-                      </TableCell>
-
-                      {/* Delay */}
-                      <TableCell className="py-4 text-left">
-                        {bill.status === 'completed' ? (
-                          <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(
-                              bill.delay
-                            )}`}
-                          >
-                            <Timer className="h-3 w-3" />
-                            {bill.delay === 0 ? 'On time' : `${bill.delay} day${bill.delay > 1 ? 's' : ''}`}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">—</span>
-                        )}
-                      </TableCell>
-
-                      {/* Updated By */}
-                      <TableCell className="py-4 text-left">
-                        {bill.updatedBy ? (
-                          <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                            <User className="h-3.5 w-3.5 text-muted-foreground" />
-                            {bill.updatedBy}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">—</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        {/* Bill PDF */}
+                        <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+                          {row.billPdf ? (
+                            String(row.billPdf).startsWith('http') ? (
+                              <a
+                                href={row.billPdf}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                              >
+                                <FilePlus2 className="h-3.5 w-3.5" />
+                                View PDF
+                              </a>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 font-medium text-primary">
+                                <FilePlus2 className="h-3.5 w-3.5" />
+                                {row.billPdf}
+                              </span>
+                            )
+                          ) : (
+                            '-'
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={12} className="py-16 text-center">
@@ -737,8 +762,8 @@ export function CreateBillPage() {
                         <div className="space-y-1">
                           <p className="text-sm font-semibold text-foreground/70">No bills found</p>
                           <p className="text-xs">
-                            {bills.length === 0
-                              ? 'No bills yet. Create a Purchase Order first — bills are generated automatically.'
+                            {counts.all === 0
+                              ? 'No records with Planned 1 (col L) set. Rows appear here once planned1 is filled in the FMS sheet.'
                               : 'No records match your current filters.'}
                           </p>
                         </div>
@@ -753,7 +778,7 @@ export function CreateBillPage() {
       </Card>
 
       {/* ── Confirm Complete Dialog ─────────────────────────────────── */}
-      <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, bill: null })}>
+      <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, row: null })}>
         <DialogContent className="sm:max-w-[440px] bg-card border-border shadow-xl rounded-2xl p-6">
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
@@ -761,39 +786,35 @@ export function CreateBillPage() {
               Confirm Bill Completion
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-1">
-              This will mark the bill as completed and move it to the Ready Product stage.
+              This will set Actual 1 (col M) to now and mark the bill as completed.
             </DialogDescription>
           </DialogHeader>
 
-          {confirmDialog.bill && (
+          {confirmDialog.row && (
             <div className="space-y-3 py-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">PO Number</span>
-                <span className="font-semibold text-primary">{confirmDialog.bill.poNumber}</span>
+                <span className="font-semibold text-primary">{confirmDialog.row.poNumber}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Vendor</span>
-                <span className="font-medium">{confirmDialog.bill.vendorName}</span>
+                <span className="font-medium">{confirmDialog.row.vendorName}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Bill Number</span>
-                <span className="font-medium">{confirmDialog.bill.billNumber || '-'}</span>
+                <span className="font-medium">{confirmDialog.row.billNumber || '-'}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Bill Amount</span>
-                <span className="font-medium">{formatAmount(confirmDialog.bill.billAmount)}</span>
+                <span className="font-medium">{formatAmount(confirmDialog.row.billAmount)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Bill Date</span>
-                <span className="font-medium">{confirmDialog.bill.billDate || '-'}</span>
+                <span className="font-medium">{confirmDialog.row.billDate || '-'}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">PO Received Date</span>
-                <span className="font-medium">{formatReceivedDate(confirmDialog.bill)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Planned Date</span>
-                <span className="font-medium">{formatDate(confirmDialog.bill.plannedDate)}</span>
+                <span className="text-muted-foreground">Planned 1</span>
+                <span className="font-medium">{formatDate(confirmDialog.row.planned1)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Processed By</span>
@@ -802,7 +823,7 @@ export function CreateBillPage() {
               <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                 <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
                   <AlertCircle className="h-3.5 w-3.5" />
-                  This action cannot be undone. The PO will advance to Ready Product.
+                  This will write the completion date to Actual 1 (col M) in the FMS sheet.
                 </p>
               </div>
             </div>
@@ -811,13 +832,13 @@ export function CreateBillPage() {
           <DialogFooter className="mt-4 gap-2">
             <Button
               variant="outline"
-              onClick={() => setConfirmDialog({ open: false, bill: null })}
+              onClick={() => setConfirmDialog({ open: false, row: null })}
               className="border-border hover:bg-accent rounded-xl cursor-pointer"
             >
               Cancel
             </Button>
             <Button
-              onClick={() => confirmDialog.bill && handleMarkComplete(confirmDialog.bill)}
+              onClick={() => confirmDialog.row && handleMarkComplete(confirmDialog.row)}
               className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5"
             >
               <CheckCircle2 className="h-4 w-4" />
@@ -828,7 +849,7 @@ export function CreateBillPage() {
       </Dialog>
 
       {/* ── Create Bill Dialog ─────────────────────────────────────── */}
-      <Dialog open={createBillDialog.open} onOpenChange={(open) => !open && setCreateBillDialog({ open: false, bill: null })}>
+      <Dialog open={createBillDialog.open} onOpenChange={(open) => !open && setCreateBillDialog({ open: false, row: null })}>
         <DialogContent className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6">
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
@@ -836,16 +857,16 @@ export function CreateBillPage() {
               Create Bill
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-1">
-              Enter bill details for PO {createBillDialog.bill?.poNumber}.
+              Enter bill details for PO {createBillDialog.row?.poNumber}.
             </DialogDescription>
           </DialogHeader>
 
-          {createBillDialog.bill && (
+          {createBillDialog.row && (
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
                 <Label className="text-xs font-semibold text-muted-foreground">Bill Number</Label>
                 <Input
-                  value={`BILL-${createBillDialog.bill.poNumber}`}
+                  value={`BILL-${createBillDialog.row.poNumber}`}
                   readOnly
                   className="rounded-xl bg-muted border-input text-xs h-10"
                 />
@@ -884,7 +905,7 @@ export function CreateBillPage() {
                   onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) {
-                      setBillPdfInput(file);
+                      setBillPdfFile(file);
                       setBillPdfNameInput(file.name);
                     }
                   }}
@@ -902,24 +923,25 @@ export function CreateBillPage() {
           <DialogFooter className="mt-6 gap-2">
             <Button
               variant="outline"
-              onClick={() => setCreateBillDialog({ open: false, bill: null })}
+              onClick={() => setCreateBillDialog({ open: false, row: null })}
               className="border-border hover:bg-accent rounded-xl cursor-pointer"
             >
               Cancel
             </Button>
             <Button
               onClick={handleCreateBill}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl cursor-pointer gap-1.5"
+              disabled={isUploadingPdf}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl cursor-pointer gap-1.5 disabled:opacity-60"
             >
               <Receipt className="h-4 w-4" />
-              Create Bill
+              {isUploadingPdf ? 'Uploading…' : 'Create Bill'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* ── Detail View Dialog ─────────────────────────────────────── */}
-      <Dialog open={detailDialog.open} onOpenChange={(open) => !open && setDetailDialog({ open: false, bill: null })}>
+      <Dialog open={detailDialog.open} onOpenChange={(open) => !open && setDetailDialog({ open: false, row: null })}>
         <DialogContent className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6">
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
@@ -931,29 +953,28 @@ export function CreateBillPage() {
             </DialogDescription>
           </DialogHeader>
 
-          {detailDialog.bill && (
+          {detailDialog.row && (
             <div className="space-y-3 py-3">
               {[
-                { label: 'PO Number', value: detailDialog.bill.poNumber },
-                { label: 'Vendor', value: detailDialog.bill.vendorName },
-                { label: 'Quantity', value: detailDialog.bill.totalQuantity?.toLocaleString() },
-                { label: 'Location', value: detailDialog.bill.location },
-                { label: 'Address', value: detailDialog.bill.address },
-                { label: 'Bill Number', value: detailDialog.bill.billNumber || '-' },
-                { label: 'Bill Amount', value: formatAmount(detailDialog.bill.billAmount) },
-                { label: 'Bill Date', value: detailDialog.bill.billDate || '-' },
-                { label: 'PO Received Date', value: formatReceivedDate(detailDialog.bill) },
-                { label: 'PO PDF', value: detailDialog.bill.poPdfName || '-' },
-                { label: 'Bill PDF', value: detailDialog.bill.billPdfName || '-' },
-                { label: 'Planned Date', value: formatDate(detailDialog.bill.plannedDate) },
-                { label: 'Actual Date', value: detailDialog.bill.actualDate ? formatDate(detailDialog.bill.actualDate) : 'Not yet' },
-                { label: 'Status', value: detailDialog.bill.status === 'completed' ? 'Completed' : 'Pending' },
-                { label: 'Delay', value: detailDialog.bill.status === 'completed' ? (detailDialog.bill.delay === 0 ? 'On time' : `${detailDialog.bill.delay} day(s)`) : '—' },
-                { label: 'Updated By', value: detailDialog.bill.updatedBy || '—' },
-              ].map((row) => (
-                <div key={row.label} className="flex items-start justify-between text-sm gap-4">
-                  <span className="text-muted-foreground shrink-0">{row.label}</span>
-                  <span className="font-medium text-foreground text-right">{row.value}</span>
+                { label: 'PO Number', value: detailDialog.row.poNumber },
+                { label: 'Vendor', value: detailDialog.row.vendorName },
+                { label: 'Quantity', value: Number(detailDialog.row.totalQuantity || 0).toLocaleString() },
+                { label: 'Location', value: detailDialog.row.location },
+                { label: 'Address', value: detailDialog.row.address },
+                { label: 'PO Received Date', value: detailDialog.row.poReceivedDate || '—' },
+                { label: 'Bill Number', value: detailDialog.row.billNumber || '-' },
+                { label: 'Bill Amount', value: formatAmount(detailDialog.row.billAmount) },
+                { label: 'Bill Date', value: detailDialog.row.billDate || '-' },
+                { label: 'PO PDF', value: detailDialog.row.poPdfName || '-' },
+                { label: 'Bill PDF', value: detailDialog.row.billPdf || '-' },
+                { label: 'Planned 1 (Col L)', value: isValidDate(detailDialog.row.planned1) ? formatDate(detailDialog.row.planned1) : '—' },
+                { label: 'Actual 1 (Col M)', value: isValidDate(detailDialog.row.actual1) ? formatDate(detailDialog.row.actual1) : 'Not yet' },
+                { label: 'Status', value: isCompleted(detailDialog.row) ? 'Completed' : 'Pending' },
+                { label: 'Delay', value: isCompleted(detailDialog.row) ? (detailDialog.row.delay1 === 0 ? 'On time' : `${detailDialog.row.delay1} day(s)`) : '—' },
+              ].map((item) => (
+                <div key={item.label} className="flex items-start justify-between text-sm gap-4">
+                  <span className="text-muted-foreground shrink-0">{item.label}</span>
+                  <span className="font-medium text-foreground text-right break-all">{item.value}</span>
                 </div>
               ))}
             </div>
@@ -962,7 +983,7 @@ export function CreateBillPage() {
           <DialogFooter className="mt-4">
             <Button
               variant="outline"
-              onClick={() => setDetailDialog({ open: false, bill: null })}
+              onClick={() => setDetailDialog({ open: false, row: null })}
               className="border-border hover:bg-accent rounded-xl cursor-pointer"
             >
               Close

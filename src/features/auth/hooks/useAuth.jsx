@@ -1,21 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
-import { INITIAL_USERS } from '@/utils/dummyData';
+import { useSheetData } from '@/hooks/useSheetData';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  // Sync all system users with localStorage
-  const [users, setUsers] = useLocalStorage('procureflow_users', INITIAL_USERS);
-  
-  // Sync current logged in user with localStorage
+  // Users live in Google Sheets
+  const [users, setUsers] = useSheetData('Login', 'id');
+
+  // Session persists in localStorage only
   const [currentUser, setCurrentUser] = useLocalStorage('procureflow_current_user', null);
-  
+
   const [authError, setAuthError] = useState('');
 
   // Keep the currentUser session data fresh if the admin edits their user details in Settings
   useEffect(() => {
-    if (currentUser) {
+    if (currentUser && Array.isArray(users) && users.length > 0) {
       const freshUserData = users.find(u => u.id === currentUser.id);
       if (freshUserData && JSON.stringify(freshUserData) !== JSON.stringify(currentUser)) {
         setCurrentUser(freshUserData);
@@ -23,47 +23,39 @@ export function AuthProvider({ children }) {
     }
   }, [users, currentUser, setCurrentUser]);
 
-  // Seed default users if the localStorage array is empty, invalid, or lacks the admin profile
-  useEffect(() => {
-    const hasAdmin = Array.isArray(users) && users.some(u => u.username === 'admin');
-    if (!users || !Array.isArray(users) || users.length === 0 || !hasAdmin) {
-      setUsers(INITIAL_USERS);
-    }
-  }, [users, setUsers]);
-
-  // Automatically grant all new pages access to existing admin user if not present
-  useEffect(() => {
-    if (Array.isArray(users)) {
-      let updated = false;
-      const requiredPages = [
-        'Generate PO',
-        'Create Bill',
-        'Ready Product',
-        'Check Transport',
-        'Print Invoice',
-        'Supply Check',
-        'Approve Product',
-        'Payment Processing'
-      ];
-      const nextUsers = users.map(u => {
-        if (u.username === 'admin') {
-          const missingPages = requiredPages.filter(p => !u.pageAccess.includes(p));
-          if (missingPages.length > 0) {
-            updated = true;
-            return { ...u, pageAccess: [...u.pageAccess, ...missingPages] };
-          }
-        }
-        return u;
-      });
-      if (updated) {
-        setUsers(nextUsers);
-      }
-    }
-  }, [users, setUsers]);
+  const DEFAULT_ADMIN = {
+    id: 'default-admin',
+    username: 'admin',
+    password: 'admin123',
+    name: 'Admin',
+    role: 'Admin',
+    status: 'Active',
+    pageAccess: [
+      'Dashboard', 'Settings', 'Generate PO', 'Create Bill',
+      'Ready Product', 'Check Transport', 'Print Invoice',
+      'Supply Check', 'Approve Product', 'Payment Processing'
+    ],
+  };
 
   const login = (username, password) => {
     setAuthError('');
-    const user = users.find(
+
+    // Check DEFAULT_ADMIN first — always works regardless of sheet contents
+    if (
+      username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase() &&
+      password === DEFAULT_ADMIN.password
+    ) {
+      // Only use DEFAULT_ADMIN if sheet has no active user with same credentials
+      const sheetMatch = Array.isArray(users) && users.find(
+        u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
+      );
+      if (!sheetMatch || sheetMatch.status !== 'Active') {
+        setCurrentUser(DEFAULT_ADMIN);
+        return true;
+      }
+    }
+
+    const user = Array.isArray(users) && users.find(
       u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
     );
 

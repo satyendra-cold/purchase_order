@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSheetData } from '@/hooks/useSheetData';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -38,49 +38,49 @@ const getPoCurrentStage = (poNumber, stages) => {
 
   const inPayment = paymentProcessing.find(x => x.poNumber === poNumber);
   if (inPayment) {
-    return inPayment.status === 'completed' 
+    return inPayment.actualDate
       ? { name: 'Completed', color: 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30' }
       : { name: 'Payment Processing', color: 'bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/30' };
   }
 
   const inApprove = approveProduct.find(x => x.poNumber === poNumber);
   if (inApprove) {
-    return inApprove.status === 'completed'
+    return inApprove.actualDate
       ? { name: 'Payment Processing', color: 'bg-indigo-50 dark:bg-indigo-950/20 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/30' }
       : { name: 'Approve Product', color: 'bg-purple-50 dark:bg-purple-950/20 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-900/30' };
   }
 
   const inSupply = supplyCheck.find(x => x.poNumber === poNumber);
   if (inSupply) {
-    return inSupply.status === 'completed'
+    return inSupply.actualDate
       ? { name: 'Approve Product', color: 'bg-purple-50 dark:bg-purple-950/20 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-900/30' }
       : { name: 'Supply Check', color: 'bg-sky-50 dark:bg-sky-950/20 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-900/30' };
   }
 
   const inPrint = printInvoice.find(x => x.poNumber === poNumber);
   if (inPrint) {
-    return inPrint.status === 'completed'
+    return inPrint.actualDate
       ? { name: 'Supply Check', color: 'bg-sky-50 dark:bg-sky-950/20 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-900/30' }
       : { name: 'Print Invoice', color: 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/30' };
   }
 
   const inTransport = checkTransport.find(x => x.poNumber === poNumber);
   if (inTransport) {
-    return inTransport.status === 'completed'
+    return inTransport.actualDate
       ? { name: 'Print Invoice', color: 'bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/30' }
       : { name: 'Check Transport', color: 'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/30' };
   }
 
   const inReady = readyProducts.find(x => x.poNumber === poNumber);
   if (inReady) {
-    return inReady.status === 'completed'
+    return inReady.actualDate
       ? { name: 'Check Transport', color: 'bg-amber-50 dark:bg-amber-950/20 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/30' }
       : { name: 'Ready Product', color: 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900/30' };
   }
 
   const inBills = bills.find(x => x.poNumber === poNumber);
   if (inBills) {
-    return inBills.status === 'completed'
+    return inBills.actualDate
       ? { name: 'Ready Product', color: 'bg-rose-50 dark:bg-rose-950/20 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-900/30' }
       : { name: 'Create Bill', color: 'bg-orange-50 dark:bg-orange-950/20 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-900/30' };
   }
@@ -92,25 +92,56 @@ export function DashboardPage() {
   const navigate = useNavigate();
   const { users } = useAuth();
 
-  // ─── Local Storage State Lists ─────────────────────────────────────
-  const [purchaseOrders] = useLocalStorage('procureflow_generated_pos', []);
-  const [bills] = useLocalStorage('procureflow_bills', []);
-  const [readyProducts] = useLocalStorage('procureflow_ready_products', []);
-  const [checkTransport] = useLocalStorage('procureflow_check_transport', []);
-  const [printInvoice] = useLocalStorage('procureflow_print_invoice', []);
-  const [supplyCheck] = useLocalStorage('procureflow_supply_check', []);
-  const [approveProduct] = useLocalStorage('procureflow_approve_product', []);
-  const [paymentProcessing] = useLocalStorage('procureflow_payment_processing', []);
-  const [vendorsList] = useLocalStorage('procureflow_vendors', []);
-  
+  // ─── Sheet-backed State Lists ──────────────────────────────────────
+  const [purchaseOrders] = useSheetData('FMS', 'poNumber');
+  const [vendorsList] = useSheetData('Vendors', 'id');
+
+  const hasValue = (val) => val != null && String(val).trim() !== '';
+
   const displayPOs = purchaseOrders;
-  const displayBills = bills;
-  const displayReadyProducts = readyProducts;
-  const displayCheckTransport = checkTransport;
-  const displayPrintInvoice = printInvoice;
-  const displaySupplyCheck = supplyCheck;
-  const displayApproveProduct = approveProduct;
-  const displayPaymentProcessing = paymentProcessing;
+
+  const displayBills = useMemo(() => {
+    return purchaseOrders
+      .filter(r => hasValue(r.planned1))
+      .map(r => ({ ...r, actualDate: hasValue(r.actual1) ? r.actual1 : null, delay: r.delay1 }));
+  }, [purchaseOrders]);
+
+  const displayReadyProducts = useMemo(() => {
+    return purchaseOrders
+      .filter(r => hasValue(r.planned2))
+      .map(r => ({ ...r, actualDate: hasValue(r.actual2) ? r.actual2 : null, delay: r.delay2 }));
+  }, [purchaseOrders]);
+
+  const displayCheckTransport = useMemo(() => {
+    return purchaseOrders
+      .filter(r => hasValue(r.planned3))
+      .map(r => ({ ...r, actualDate: hasValue(r.actual3) ? r.actual3 : null, delay: r.delay3 }));
+  }, [purchaseOrders]);
+
+  const displayPrintInvoice = useMemo(() => {
+    return purchaseOrders
+      .filter(r => hasValue(r.planned4))
+      .map(r => ({ ...r, actualDate: hasValue(r.actual4) ? r.actual4 : null, delay: r.delay4 }));
+  }, [purchaseOrders]);
+
+  const displaySupplyCheck = useMemo(() => {
+    return purchaseOrders
+      .filter(r => hasValue(r.planned5))
+      .map(r => ({ ...r, actualDate: hasValue(r.actual5) ? r.actual5 : null, delay: r.delay5 }));
+  }, [purchaseOrders]);
+
+  const displayApproveProduct = useMemo(() => {
+    return purchaseOrders
+      .filter(r => hasValue(r.planned6))
+      .map(r => ({ ...r, actualDate: hasValue(r.actual6) ? r.actual6 : null, delay: r.delay6 }));
+  }, [purchaseOrders]);
+
+  const displayPaymentProcessing = useMemo(() => {
+    return purchaseOrders
+      .filter(r => hasValue(r.planned7))
+      .map(r => ({ ...r, actualDate: hasValue(r.actual7) ? r.actual7 : null, delay: r.delay7 }));
+  }, [purchaseOrders]);
+
   const displayVendorsList = vendorsList;
 
   // Interactive chart state
@@ -158,7 +189,7 @@ export function DashboardPage() {
       ...displayPaymentProcessing
     ];
     
-    const completedTasks = allWorkflowItems.filter(item => item.status === 'completed');
+    const completedTasks = allWorkflowItems.filter(item => item.actualDate);
     const totalCompletions = completedTasks.length;
     const delayedCompletions = completedTasks.filter(item => (item.delay || 0) > 0).length;
     const sumDelayDays = completedTasks.reduce((sum, item) => sum + (item.delay || 0), 0);
@@ -410,7 +441,7 @@ export function DashboardPage() {
                     <div className="w-12 sm:w-16 bg-neutral-100 dark:bg-neutral-800 rounded-t-xl h-[180px] flex items-end overflow-hidden border border-border/40 relative">
                       <div 
                         style={{ height: `${heightPercent}%` }}
-                        className="w-full bg-gradient-to-t from-primary/80 to-primary rounded-t-lg transition-all duration-500 ease-out relative group-hover:brightness-110 shadow-[0_0_12px_rgba(var(--primary-color),0.1)] cursor-pointer"
+                        className="w-full bg-linear-to-t from-primary/80 to-primary rounded-t-lg transition-all duration-500 ease-out relative group-hover:brightness-110 shadow-[0_0_12px_rgba(var(--primary-color),0.1)] cursor-pointer"
                       />
                     </div>
 
@@ -554,7 +585,7 @@ export function DashboardPage() {
                 key={stage.key} 
                 className={`p-4 rounded-xl border bg-neutral-50/50 dark:bg-neutral-900/10 flex flex-col justify-between h-[120px] transition-all ${
                   stage.pending > 0 
-                    ? 'border-amber-200 dark:border-amber-900/40 bg-amber-500/[0.02] shadow-[0_0_12px_rgba(245,158,11,0.02)]' 
+                    ? 'border-amber-200 dark:border-amber-900/40 bg-amber-500/2 shadow-[0_0_12px_rgba(245,158,11,0.02)]' 
                     : stage.completed > 0
                     ? 'border-emerald-200 dark:border-emerald-900/40' 
                     : 'border-border'

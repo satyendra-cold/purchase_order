@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSheetData } from '@/hooks/useSheetData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -35,7 +35,6 @@ import {
   CalendarCheck2,
   Eye,
 } from 'lucide-react';
-import { SEED_VENDORS } from '@/utils/seedData';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -71,6 +70,14 @@ const delayBadgeClass = (days) => {
   return 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800';
 };
 
+const hasValue = (val) => val != null && String(val).trim() !== '';
+
+const makeTimestamp = () => {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
 const TABS = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
@@ -83,14 +90,13 @@ export function PaymentProcessingPage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
-  // This stage's records (pushed from ApproveProductPage) — FINAL STAGE
-  const [items, setItems] = useLocalStorage('procureflow_payment_processing', []);
+  // Load consolidated FMS sheet directly
+  const [fmsData, setFmsData] = useSheetData('FMS', 'poNumber');
 
-  // Related workflow data
-  const [bills] = useLocalStorage('procureflow_bills', []);
-  const [purchaseOrders] = useLocalStorage('procureflow_generated_pos', []);
-  const [vendors] = useLocalStorage('procureflow_vendors', SEED_VENDORS);
-  const [locations] = useLocalStorage('procureflow_locations', ['RAIPUR', 'DURG', 'BILASPUR']);
+  // Related configuration data
+  const [vendors] = useSheetData('Vendors', 'id');
+  const [locationData] = useSheetData('Locations', 'name');
+  const locations = locationData.map(l => l.name);
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,25 +108,21 @@ export function PaymentProcessingPage() {
   const [formVendor, setFormVendor] = useState('');
   const [formPoNumber, setFormPoNumber] = useState('');
   const [formLocation, setFormLocation] = useState('');
-  const [formLocationArea, setFormLocationArea] = useState('');
-  const [formInitiatedDate, setFormInitiatedDate] = useState('');
+  const [formAddress, setFormAddress] = useState('');
   const [formBillingAmount, setFormBillingAmount] = useState('');
-  const [formOrderDate, setFormOrderDate] = useState('');
-  const [formPaymentCompleted, setFormPaymentCompleted] = useState(true);
+
+  // ── Pending   = planned7 (col AN) NOT null  AND  actual7 (col AO) IS empty
+  // ── Completed = planned7 (col AN) NOT null  AND  actual7 (col AO) NOT empty
+  const isPending = (row) => hasValue(row.planned7) && !hasValue(row.actual7);
+  const isCompleted = (row) => hasValue(row.planned7) && hasValue(row.actual7);
 
   // ── Open modal for processing payment ────────────────────────────
   const handleOpenProcessPayment = (item) => {
-    const bill = bills.find((b) => b.poNumber === item.poNumber) || {};
-    const po = purchaseOrders.find((p) => p.poNumber === item.poNumber) || {};
-
-    setFormVendor(item.vendorName || po.vendorName || '');
+    setFormVendor(item.vendorName || '');
     setFormPoNumber(item.poNumber || '');
-    setFormLocation(item.location || po.location || '');
-    setFormLocationArea(item.locationArea || item.address || po.address || '');
-    setFormInitiatedDate(item.initiatedDate ? item.initiatedDate.split('T')[0] : new Date().toISOString().split('T')[0]);
-    setFormBillingAmount(item.billAmount !== undefined && item.billAmount !== null ? String(item.billAmount) : (bill.billAmount ? String(bill.billAmount) : ''));
-    setFormOrderDate(item.orderDate ? item.orderDate.split('T')[0] : (po.timestamp ? po.timestamp.split('T')[0] : (item.createdAt ? item.createdAt.split('T')[0] : '')));
-    setFormPaymentCompleted(item.paymentCompleted !== undefined ? item.paymentCompleted : true);
+    setFormLocation(item.location || '');
+    setFormAddress(item.address || '');
+    setFormBillingAmount(item.billAmount !== undefined && item.billAmount !== null ? String(item.billAmount) : '');
 
     setConfirmDialog({ open: true, item });
   };
@@ -131,30 +133,24 @@ export function PaymentProcessingPage() {
     const item = confirmDialog.item;
     if (!item) return;
 
-    const now = new Date().toISOString();
-    const delay = calcDelayDays(item.plannedDate, now);
+    const nowTimestamp = makeTimestamp(); // M/D/YYYY H:mm:ss format
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
 
-    const updated = items.map((r) =>
+    // Update FMS directly
+    const updated = fmsData.map((r) =>
       r.poNumber === item.poNumber
         ? {
             ...r,
-            vendorName: formVendor,
-            poNumber: formPoNumber,
+            vendorName: formVendor.trim(),
             location: formLocation,
-            locationArea: formLocationArea,
-            initiatedDate: formInitiatedDate,
+            address: formAddress.trim(),
             billAmount: formBillingAmount ? Number(formBillingAmount) : null,
-            orderDate: formOrderDate,
-            paymentCompleted: formPaymentCompleted,
-            actualDate: now,
-            status: 'completed',
-            delay,
+            actual7: nowTimestamp,
             updatedBy: userName,
           }
         : r
     );
-    setItems(updated);
+    setFmsData(updated);
 
     toast(`Payment for ${formPoNumber} processed successfully!`, 'success');
     setConfirmDialog({ open: false, item: null });
@@ -162,30 +158,33 @@ export function PaymentProcessingPage() {
 
   // ── Filtered & searched list ───────────────────────────────────────
   const filteredItems = useMemo(() => {
-    let list = items;
-    if (activeTab === 'pending') list = list.filter((r) => r.status === 'pending');
-    else if (activeTab === 'completed') list = list.filter((r) => r.status === 'completed');
+    // Only show items where planned7 (col AN) has a value
+    let list = fmsData.filter((r) => hasValue(r.planned7));
+
+    if (activeTab === 'pending') list = list.filter(isPending);
+    else if (activeTab === 'completed') list = list.filter(isCompleted);
+
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       list = list.filter(
         (r) =>
-          r.poNumber.toLowerCase().includes(q) ||
-          r.vendorName.toLowerCase().includes(q) ||
-          r.location.toLowerCase().includes(q) ||
-          (r.updatedBy && r.updatedBy.toLowerCase().includes(q))
+          String(r.poNumber || '').toLowerCase().includes(q) ||
+          String(r.vendorName || '').toLowerCase().includes(q) ||
+          String(r.location || '').toLowerCase().includes(q) ||
+          String(r.updatedBy || '').toLowerCase().includes(q)
       );
     }
     return list;
-  }, [items, activeTab, searchTerm]);
+  }, [fmsData, activeTab, searchTerm]);
 
-  const counts = useMemo(
-    () => ({
-      all: items.length,
-      pending: items.filter((r) => r.status === 'pending').length,
-      completed: items.filter((r) => r.status === 'completed').length,
-    }),
-    [items]
-  );
+  const counts = useMemo(() => {
+    const staged = fmsData.filter((r) => hasValue(r.planned7));
+    return {
+      all: staged.length,
+      pending: staged.filter(isPending).length,
+      completed: staged.filter(isCompleted).length,
+    };
+  }, [fmsData]);
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
@@ -241,7 +240,6 @@ export function PaymentProcessingPage() {
       {/* Main Table Card */}
       <Card className="border-border bg-card shadow-sm rounded-2xl">
         <CardHeader className="py-4 px-4 md:px-6 border-b border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          {/* Left: search + record count */}
           <div className="flex items-center gap-3">
             <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
@@ -255,7 +253,6 @@ export function PaymentProcessingPage() {
             <div className="text-xs text-muted-foreground hidden md:inline-block">{filteredItems.length} record(s)</div>
           </div>
 
-          {/* Right: status tabs */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
               {TABS.map((tab) => (
@@ -282,12 +279,13 @@ export function PaymentProcessingPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location Area</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Order Date</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Initiated Date</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Address</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Billing Amount</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Payment Completed</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned 7 (AN)</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Actual 7 (AO)</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Status</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Delay 7 (AP)</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Updated By</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -296,22 +294,12 @@ export function PaymentProcessingPage() {
                     <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
                       <TableCell className="pl-4 md:pl-6 py-4 text-left">
                         <div className="flex items-center gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDetailDialog({ open: true, item })}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                            title="View details"
-                          >
+                          <Button variant="ghost" size="icon" onClick={() => setDetailDialog({ open: true, item })} className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer" title="View details">
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
-                          {(item.status === 'pending' || (item.status === 'completed' && !item.paymentCompleted)) && (
-                            <Button
-                              onClick={() => handleOpenProcessPayment(item)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
-                            >
-                              <CreditCard className="h-3.5 w-3.5" />
-                              {item.status === 'completed' ? 'Edit Payment' : 'Process Payment'}
+                          {!hasValue(item.actual7) && (
+                            <Button onClick={() => handleOpenProcessPayment(item)} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
+                              <CreditCard className="h-3.5 w-3.5" />Process Payment
                             </Button>
                           )}
                         </div>
@@ -323,41 +311,26 @@ export function PaymentProcessingPage() {
                           <MapPin className="h-2.5 w-2.5 text-muted-foreground" />{item.location}
                         </span>
                       </TableCell>
-                      <TableCell className="py-4 text-left text-xs sm:text-sm text-foreground">{item.locationArea || item.address || '—'}</TableCell>
-                      <TableCell className="py-4 text-left">
-                        <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{item.orderDate ? formatDate(item.orderDate) : '—'}
-                        </span>
-                      </TableCell>
-                      <TableCell className="py-4 text-left">
-                        {item.initiatedDate ? (
-                          <span className="text-xs sm:text-sm text-foreground flex items-center gap-1">
-                            <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{formatDate(item.initiatedDate)}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">—</span>
-                        )}
-                      </TableCell>
+                      <TableCell className="py-4 text-left text-xs sm:text-sm text-foreground">{item.address || '—'}</TableCell>
                       <TableCell className="py-4 text-left font-medium text-foreground">
                         {item.billAmount !== null && item.billAmount !== undefined ? `₹${item.billAmount.toLocaleString('en-IN')}` : '—'}
                       </TableCell>
                       <TableCell className="py-4 text-left">
-                        {item.status === 'completed' ? (
-                          item.paymentCompleted ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                              Yes
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                              No
-                            </span>
-                          )
+                        <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
+                          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{formatDate(item.planned7)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-4 text-left">
+                        {hasValue(item.actual7) ? (
+                          <span className="text-xs sm:text-sm text-foreground flex items-center gap-1">
+                            <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />{formatDate(item.actual7)}
+                          </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground italic">—</span>
+                          <span className="text-xs text-muted-foreground italic">Not yet</span>
                         )}
                       </TableCell>
                       <TableCell className="py-4 text-left">
-                        {item.status === 'completed' ? (
+                        {hasValue(item.actual7) ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                             <CheckCircle2 className="h-3 w-3" />Processed
                           </span>
@@ -367,19 +340,35 @@ export function PaymentProcessingPage() {
                           </span>
                         )}
                       </TableCell>
+                      <TableCell className="py-4 text-left">
+                        {hasValue(item.actual7) ? (
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay7)}`}>
+                            <Timer className="h-3 w-3" />{item.delay7 === 0 ? 'On time' : `${item.delay7} day(s)`}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">—</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-4 text-left">
+                        {item.updatedBy ? (
+                          <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
+                            <User className="h-3.5 w-3.5 text-muted-foreground" />{item.updatedBy}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">—</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-16 text-center">
+                    <TableCell colSpan={11} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-primary/5 rounded-full"><CreditCard className="h-8 w-8 text-primary/40" /></div>
                         <div className="space-y-1">
                           <p className="text-sm font-semibold text-foreground/70">No payment records</p>
                           <p className="text-xs">
-                            {items.length === 0
-                              ? 'No payment records yet. Records will be automatically loaded from the previous stage.'
-                              : 'No records match your current filters.'}
+                            No records match your current filters.
                           </p>
                         </div>
                       </div>
@@ -392,24 +381,24 @@ export function PaymentProcessingPage() {
         </CardContent>
       </Card>
 
-      {/* Confirm/Process Payment Dialog */}
+      {/* Process Payment Dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[550px] bg-card border-border shadow-xl rounded-2xl p-6 max-h-[95vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-[500px] bg-card border-border shadow-xl rounded-2xl p-6">
           <form onSubmit={handleConfirmPaymentSubmit}>
             <DialogHeader className="text-left mb-4">
               <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
                 <CreditCard className="h-5 w-5 text-primary" />Process Payment
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground mt-1">
-                Enter payment details to finalize this purchase order's payment.
+                Enter payment details. This will stamp Actual 7 (col AO) in the FMS sheet.
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4 py-2">
+            <div className="space-y-4 py-2">
               {/* Vendor Selection */}
               <div className="space-y-1.5 text-left">
                 <Label htmlFor="vendor" className="text-xs font-semibold text-muted-foreground pl-0.5">
-                  Vendor Selection*
+                  Vendor*
                 </Label>
                 <Select value={formVendor} onValueChange={setFormVendor}>
                   <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-10">
@@ -434,8 +423,7 @@ export function PaymentProcessingPage() {
                   id="poNumber"
                   value={formPoNumber}
                   readOnly
-                  placeholder="PO Number"
-                  className="rounded-xl bg-neutral-100 dark:bg-neutral-800 border-input cursor-not-allowed"
+                  className="rounded-xl bg-neutral-100 dark:bg-neutral-800 border-input cursor-not-allowed text-xs h-10"
                   required
                 />
               </div>
@@ -459,47 +447,17 @@ export function PaymentProcessingPage() {
                 </Select>
               </div>
 
-              {/* Location Area */}
+              {/* Address */}
               <div className="space-y-1.5 text-left">
-                <Label htmlFor="locationArea" className="text-xs font-semibold text-muted-foreground pl-0.5">
-                  Location Area*
+                <Label htmlFor="address" className="text-xs font-semibold text-muted-foreground pl-0.5">
+                  Address*
                 </Label>
                 <Input
-                  id="locationArea"
-                  value={formLocationArea}
-                  onChange={(e) => setFormLocationArea(e.target.value)}
-                  placeholder="Location Area / Address"
-                  className="rounded-xl bg-background border-input"
-                  required
-                />
-              </div>
-
-              {/* Order Date */}
-              <div className="space-y-1.5 text-left">
-                <Label htmlFor="orderDate" className="text-xs font-semibold text-muted-foreground pl-0.5">
-                  Order Date*
-                </Label>
-                <Input
-                  id="orderDate"
-                  type="date"
-                  value={formOrderDate}
-                  onChange={(e) => setFormOrderDate(e.target.value)}
-                  className="rounded-xl bg-background border-input"
-                  required
-                />
-              </div>
-
-              {/* Initiated Date */}
-              <div className="space-y-1.5 text-left">
-                <Label htmlFor="initiatedDate" className="text-xs font-semibold text-muted-foreground pl-0.5">
-                  Initiated Date*
-                </Label>
-                <Input
-                  id="initiatedDate"
-                  type="date"
-                  value={formInitiatedDate}
-                  onChange={(e) => setFormInitiatedDate(e.target.value)}
-                  className="rounded-xl bg-background border-input"
+                  id="address"
+                  value={formAddress}
+                  onChange={(e) => setFormAddress(e.target.value)}
+                  placeholder="Address"
+                  className="rounded-xl bg-background border-input text-xs h-10"
                   required
                 />
               </div>
@@ -517,23 +475,9 @@ export function PaymentProcessingPage() {
                   value={formBillingAmount}
                   onChange={(e) => setFormBillingAmount(e.target.value)}
                   placeholder="Enter billing amount"
-                  className="rounded-xl bg-background border-input"
+                  className="rounded-xl bg-background border-input text-xs h-10"
                   required
                 />
-              </div>
-
-              {/* Payment Completed Checkbox */}
-              <div className="flex items-center space-x-2.5 pt-7 text-left pl-0.5">
-                <input
-                  id="paymentCompleted"
-                  type="checkbox"
-                  checked={formPaymentCompleted}
-                  onChange={(e) => setFormPaymentCompleted(e.target.checked)}
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary cursor-pointer"
-                />
-                <Label htmlFor="paymentCompleted" className="text-xs font-semibold text-foreground cursor-pointer select-none">
-                  Payment Completed
-                </Label>
               </div>
             </div>
 
@@ -563,15 +507,12 @@ export function PaymentProcessingPage() {
                 { label: 'Vendor', value: detailDialog.item.vendorName },
                 { label: 'Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
                 { label: 'Location', value: detailDialog.item.location },
-                { label: 'Location Area', value: detailDialog.item.locationArea || detailDialog.item.address || '—' },
-                { label: 'Order Date', value: detailDialog.item.orderDate ? formatDate(detailDialog.item.orderDate) : '—' },
-                { label: 'Initiated Date', value: detailDialog.item.initiatedDate ? formatDate(detailDialog.item.initiatedDate) : '—' },
+                { label: 'Address', value: detailDialog.item.address || '—' },
                 { label: 'Billing Amount', value: detailDialog.item.billAmount !== null && detailDialog.item.billAmount !== undefined ? `₹${detailDialog.item.billAmount.toLocaleString('en-IN')}` : '—' },
-                { label: 'Payment Completed', value: detailDialog.item.status === 'completed' ? (detailDialog.item.paymentCompleted ? 'Yes' : 'No') : '—' },
-                { label: 'Planned Date', value: formatDate(detailDialog.item.plannedDate) },
-                { label: 'Actual Date (Payment Finalized)', value: detailDialog.item.actualDate ? formatDate(detailDialog.item.actualDate) : 'Not yet' },
-                { label: 'Status', value: detailDialog.item.status === 'completed' ? 'Processed' : 'Pending' },
-                { label: 'Delay', value: detailDialog.item.status === 'completed' ? (detailDialog.item.delay === 0 ? 'On time' : `${detailDialog.item.delay} day(s)`) : '—' },
+                { label: 'Planned 7 (AN)', value: formatDate(detailDialog.item.planned7) },
+                { label: 'Actual 7 (AO)', value: hasValue(detailDialog.item.actual7) ? formatDate(detailDialog.item.actual7) : 'Not yet' },
+                { label: 'Status', value: hasValue(detailDialog.item.actual7) ? 'Processed' : 'Pending' },
+                { label: 'Delay 7 (AP)', value: hasValue(detailDialog.item.actual7) ? (detailDialog.item.delay7 === 0 ? 'On time' : `${detailDialog.item.delay7} day(s)`) : '—' },
                 { label: 'Updated By', value: detailDialog.item.updatedBy || '—' },
               ].map((row) => (
                 <div key={row.label} className="flex items-start justify-between text-sm gap-4">
@@ -586,7 +527,6 @@ export function PaymentProcessingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }

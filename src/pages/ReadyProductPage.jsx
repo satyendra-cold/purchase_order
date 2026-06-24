@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSheetData } from '@/hooks/useSheetData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,7 +34,10 @@ import {
 const formatDate = (isoString) => {
   if (!isoString) return '—';
   try {
-    return new Date(isoString).toLocaleString('en-IN', {
+    const d = new Date(isoString);
+    // Reject Excel epoch glitches (year < 1990)
+    if (isNaN(d) || d.getFullYear() < 1990) return isoString;
+    return d.toLocaleString('en-IN', {
       day: 'numeric',
       month: 'short',
       year: 'numeric',
@@ -63,6 +66,14 @@ const delayBadgeClass = (days) => {
   return 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800';
 };
 
+const hasValue = (val) => val != null && String(val).trim() !== '';
+
+const makeTimestamp = () => {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
 // ─── Status tabs ────────────────────────────────────────────────────
 
 const TABS = [
@@ -77,51 +88,35 @@ export function ReadyProductPage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
-  // Ready product records (pushed from CreateBillPage when bill is completed)
-  const [readyProducts, setReadyProducts] = useLocalStorage('procureflow_ready_products', []);
-
-  // Next stage storage — push completed items here
-  const [checkTransport, setCheckTransport] = useLocalStorage('procureflow_check_transport', []);
+  // Ready product records (read directly from FMS sheet)
+  const [readyProducts, setReadyProducts] = useSheetData('FMS', 'poNumber');
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
-  const [actualDateInput, setActualDateInput] = useState('');
+
+  // ── Pending   = planned2 (col S) NOT null  AND  actual2 (col T) IS null
+  // ── Completed = planned2 (col S) NOT null  AND  actual2 (col T) NOT null
+  const isPending = (row) => hasValue(row.planned2) && !hasValue(row.actual2);
+  const isCompleted = (row) => hasValue(row.planned2) && hasValue(row.actual2);
 
   // ── Mark product as ready ──────────────────────────────────────────
   const handleMarkReady = (item) => {
-    const selectedDate = actualDateInput || new Date().toISOString();
-    const selectedDateObj = new Date(selectedDate);
-    const delay = calcDelayDays(item.plannedDate, selectedDateObj.toISOString());
+    const nowTimestamp = makeTimestamp(); // M/D/YYYY H:mm:ss format
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
 
     const updated = readyProducts.map((r) =>
       r.poNumber === item.poNumber
-        ? { ...r, actualDate: selectedDateObj.toISOString(), status: 'completed', delay, updatedBy: userName }
+        ? {
+            ...r,
+            actual2: nowTimestamp,
+            updatedBy: userName,
+          }
         : r
     );
     setReadyProducts(updated);
-
-    // Push to Check Transport (next stage)
-    const alreadyExists = checkTransport.some((t) => t.poNumber === item.poNumber);
-    if (!alreadyExists) {
-      const nextEntry = {
-        poNumber: item.poNumber,
-        vendorName: item.vendorName,
-        totalQuantity: item.totalQuantity,
-        location: item.location,
-        address: item.address,
-        plannedDate: selectedDateObj.toISOString(),
-        actualDate: null,
-        status: 'pending',
-        delay: 0,
-        updatedBy: '',
-        createdAt: new Date().toISOString(),
-      };
-      setCheckTransport((prev) => [nextEntry, ...prev]);
-    }
 
     toast(`Product for ${item.poNumber} marked as ready!`, 'success');
     setConfirmDialog({ open: false, item: null });
@@ -129,32 +124,38 @@ export function ReadyProductPage() {
 
   // ── Filtered & searched list ───────────────────────────────────────
   const filteredItems = useMemo(() => {
-    let list = readyProducts;
+    // Only show rows that have planned2 set (are in the "Ready Product" stage)
+    let list = readyProducts.filter((r) => hasValue(r.planned2));
 
-    if (activeTab === 'pending') list = list.filter((r) => r.status === 'pending');
-    else if (activeTab === 'completed') list = list.filter((r) => r.status === 'completed');
+    if (activeTab === 'pending') list = list.filter(isPending);
+    else if (activeTab === 'completed') list = list.filter(isCompleted);
 
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       list = list.filter(
         (r) =>
-          r.poNumber.toLowerCase().includes(q) ||
-          r.vendorName.toLowerCase().includes(q) ||
-          r.location.toLowerCase().includes(q) ||
-          (r.updatedBy && r.updatedBy.toLowerCase().includes(q))
+          String(r.poNumber || '').toLowerCase().includes(q) ||
+          String(r.vendorName || '').toLowerCase().includes(q) ||
+          String(r.location || '').toLowerCase().includes(q) ||
+          String(r.updatedBy || '').toLowerCase().includes(q)
       );
     }
 
     return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readyProducts, activeTab, searchTerm]);
 
   // ── Tab counts ─────────────────────────────────────────────────────
   const counts = useMemo(
-    () => ({
-      all: readyProducts.length,
-      pending: readyProducts.filter((r) => r.status === 'pending').length,
-      completed: readyProducts.filter((r) => r.status === 'completed').length,
-    }),
+    () => {
+      const staged = readyProducts.filter((r) => hasValue(r.planned2));
+      return {
+        all: staged.length,
+        pending: staged.filter(isPending).length,
+        completed: staged.filter(isCompleted).length,
+      };
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [readyProducts]
   );
 
@@ -271,16 +272,16 @@ export function ReadyProductPage() {
                     Location
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Planned Date
+                    Planned 2 (S)
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Actual Date
+                    Actual 2 (T)
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Status
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Delay
+                    Delay 2 (U)
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Updated By
@@ -307,10 +308,9 @@ export function ReadyProductPage() {
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
 
-                          {item.status === 'pending' && (
+                          {!hasValue(item.actual2) && (
                             <Button
                               onClick={() => {
-                                setActualDateInput(new Date().toISOString().split('T')[0]);
                                 setConfirmDialog({ open: true, item });
                               }}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
@@ -342,16 +342,16 @@ export function ReadyProductPage() {
                       <TableCell className="py-4 text-left">
                         <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
                           <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />
-                          {formatDate(item.plannedDate)}
+                          {formatDate(item.planned2)}
                         </span>
                       </TableCell>
 
                       {/* Actual Date */}
                       <TableCell className="py-4 text-left">
-                        {item.actualDate ? (
+                        {item.actual2 ? (
                           <span className="text-xs sm:text-sm text-foreground flex items-center gap-1">
                             <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />
-                            {formatDate(item.actualDate)}
+                            {formatDate(item.actual2)}
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground italic">Not yet</span>
@@ -360,7 +360,7 @@ export function ReadyProductPage() {
 
                       {/* Status Badge */}
                       <TableCell className="py-4 text-left">
-                        {item.status === 'completed' ? (
+                        {item.actual2 ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                             <CheckCircle2 className="h-3 w-3" />
                             Completed
@@ -375,14 +375,14 @@ export function ReadyProductPage() {
 
                       {/* Delay */}
                       <TableCell className="py-4 text-left">
-                        {item.status === 'completed' ? (
+                        {item.actual2 ? (
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(
-                              item.delay
+                              item.delay2 || 0
                             )}`}
                           >
                             <Timer className="h-3 w-3" />
-                            {item.delay === 0 ? 'On time' : `${item.delay} day${item.delay > 1 ? 's' : ''}`}
+                            {(item.delay2 || 0) === 0 ? 'On time' : `${item.delay2} day${item.delay2 > 1 ? 's' : ''}`}
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground italic">—</span>
@@ -452,18 +452,8 @@ export function ReadyProductPage() {
                 <span className="font-medium">{confirmDialog.item.vendorName}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Planned Date</span>
-                <span className="font-medium">{formatDate(confirmDialog.item.plannedDate)}</span>
-              </div>
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground">Actual Date*</Label>
-                <Input
-                  type="date"
-                  value={actualDateInput}
-                  onChange={(e) => setActualDateInput(e.target.value)}
-                  className="rounded-xl bg-background border-input text-xs h-10"
-                  required
-                />
+                <span className="text-muted-foreground">Planned 2</span>
+                <span className="font-medium">{formatDate(confirmDialog.item.planned2)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Processed By</span>
@@ -472,7 +462,7 @@ export function ReadyProductPage() {
               <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                 <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
                   <AlertCircle className="h-3.5 w-3.5" />
-                  This action cannot be undone. The PO will advance to Check Transport.
+                  This will write the completion date to Actual 2 (col T) in the FMS sheet.
                 </p>
               </div>
             </div>
@@ -518,10 +508,10 @@ export function ReadyProductPage() {
                 { label: 'Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
                 { label: 'Location', value: detailDialog.item.location },
                 { label: 'Address', value: detailDialog.item.address },
-                { label: 'Planned Date', value: formatDate(detailDialog.item.plannedDate) },
-                { label: 'Actual Date', value: detailDialog.item.actualDate ? formatDate(detailDialog.item.actualDate) : 'Not yet' },
-                { label: 'Status', value: detailDialog.item.status === 'completed' ? 'Completed' : 'Pending' },
-                { label: 'Delay', value: detailDialog.item.status === 'completed' ? (detailDialog.item.delay === 0 ? 'On time' : `${detailDialog.item.delay} day(s)`) : '—' },
+                { label: 'Planned Date', value: formatDate(detailDialog.item.planned2) },
+                { label: 'Actual Date', value: detailDialog.item.actual2 ? formatDate(detailDialog.item.actual2) : 'Not yet' },
+                { label: 'Status', value: detailDialog.item.actual2 ? 'Completed' : 'Pending' },
+                { label: 'Delay', value: detailDialog.item.actual2 ? ((detailDialog.item.delay2 || 0) === 0 ? 'On time' : `${detailDialog.item.delay2} day(s)`) : '—' },
                 { label: 'Updated By', value: detailDialog.item.updatedBy || '—' },
               ].map((row) => (
                 <div key={row.label} className="flex items-start justify-between text-sm gap-4">

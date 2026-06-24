@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
+import { useSheetData } from '@/hooks/useSheetData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -62,6 +62,14 @@ const delayBadgeClass = (days) => {
   return 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800';
 };
 
+const hasValue = (val) => val != null && String(val).trim() !== '';
+
+const makeTimestamp = () => {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+};
+
 const TABS = [
   { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
@@ -74,11 +82,8 @@ export function SupplyCheckPage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
-  // This stage's records
-  const [items, setItems] = useLocalStorage('procureflow_supply_check', []);
-
-  // Next stage storage — push completed items here
-  const [nextStage, setNextStage] = useLocalStorage('procureflow_approve_product', []);
+  // Consolidated FMS sheet
+  const [fmsData, setFmsData] = useSheetData('FMS', 'poNumber');
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
@@ -86,37 +91,27 @@ export function SupplyCheckPage() {
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
 
+  // ── Pending   = planned5 (col AH) NOT null  AND  actual5 (col AI) IS empty
+  // ── Completed = planned5 (col AH) NOT null  AND  actual5 (col AI) NOT empty
+  const isPending = (row) => hasValue(row.planned5) && !hasValue(row.actual5);
+  const isCompleted = (row) => hasValue(row.planned5) && hasValue(row.actual5);
+
   // ── Mark as supply checked ─────────────────────────────────────────
   const handleMarkComplete = (item) => {
-    const now = new Date().toISOString();
-    const delay = calcDelayDays(item.plannedDate, now);
+    const nowTimestamp = makeTimestamp(); // M/D/YYYY H:mm:ss format
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
 
-    const updated = items.map((r) =>
+    // Update FMS directly
+    const updated = fmsData.map((r) =>
       r.poNumber === item.poNumber
-        ? { ...r, actualDate: now, status: 'completed', delay, updatedBy: userName }
+        ? {
+            ...r,
+            actual5: nowTimestamp,
+            updatedBy: userName,
+          }
         : r
     );
-    setItems(updated);
-
-    // Push to Approve Product (next stage)
-    const alreadyExists = nextStage.some((t) => t.poNumber === item.poNumber);
-    if (!alreadyExists) {
-      const nextEntry = {
-        poNumber: item.poNumber,
-        vendorName: item.vendorName,
-        totalQuantity: item.totalQuantity,
-        location: item.location,
-        address: item.address,
-        plannedDate: now,
-        actualDate: null,
-        status: 'pending',
-        delay: 0,
-        updatedBy: '',
-        createdAt: new Date().toISOString(),
-      };
-      setNextStage((prev) => [nextEntry, ...prev]);
-    }
+    setFmsData(updated);
 
     toast(`Supply check for ${item.poNumber} completed!`, 'success');
     setConfirmDialog({ open: false, item: null });
@@ -124,30 +119,33 @@ export function SupplyCheckPage() {
 
   // ── Filtered & searched list ───────────────────────────────────────
   const filteredItems = useMemo(() => {
-    let list = items;
-    if (activeTab === 'pending') list = list.filter((r) => r.status === 'pending');
-    else if (activeTab === 'completed') list = list.filter((r) => r.status === 'completed');
+    // Only show items where planned5 (col AH) has a value
+    let list = fmsData.filter((r) => hasValue(r.planned5));
+
+    if (activeTab === 'pending') list = list.filter(isPending);
+    else if (activeTab === 'completed') list = list.filter(isCompleted);
+
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       list = list.filter(
         (r) =>
-          r.poNumber.toLowerCase().includes(q) ||
-          r.vendorName.toLowerCase().includes(q) ||
-          r.location.toLowerCase().includes(q) ||
-          (r.updatedBy && r.updatedBy.toLowerCase().includes(q))
+          String(r.poNumber || '').toLowerCase().includes(q) ||
+          String(r.vendorName || '').toLowerCase().includes(q) ||
+          String(r.location || '').toLowerCase().includes(q) ||
+          String(r.updatedBy || '').toLowerCase().includes(q)
       );
     }
     return list;
-  }, [items, activeTab, searchTerm]);
+  }, [fmsData, activeTab, searchTerm]);
 
-  const counts = useMemo(
-    () => ({
-      all: items.length,
-      pending: items.filter((r) => r.status === 'pending').length,
-      completed: items.filter((r) => r.status === 'completed').length,
-    }),
-    [items]
-  );
+  const counts = useMemo(() => {
+    const staged = fmsData.filter((r) => hasValue(r.planned5));
+    return {
+      all: staged.length,
+      pending: staged.filter(isPending).length,
+      completed: staged.filter(isCompleted).length,
+    };
+  }, [fmsData]);
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
@@ -158,7 +156,7 @@ export function SupplyCheckPage() {
             Supply Check
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground mt-1">
-            Verify supply quantities and item integrity. Completed items move to Approve Product.
+            Perform physical checks and verify received supply items against purchase orders.
           </p>
         </div>
       </div>
@@ -193,7 +191,7 @@ export function SupplyCheckPage() {
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <div className="text-left">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Completed</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Checked</p>
               <p className="text-xl font-bold text-foreground">{counts.completed}</p>
             </div>
           </CardContent>
@@ -203,12 +201,11 @@ export function SupplyCheckPage() {
       {/* Main Table Card */}
       <Card className="border-border bg-card shadow-sm rounded-2xl">
         <CardHeader className="py-4 px-4 md:px-6 border-b border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          {/* Left: search + record count */}
           <div className="flex items-center gap-3">
             <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Search supplies…"
+                placeholder="Search supply checks…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 rounded-xl border-input bg-background h-9 text-xs sm:text-sm max-w-xs"
@@ -217,7 +214,6 @@ export function SupplyCheckPage() {
             <div className="text-xs text-muted-foreground hidden md:inline-block">{filteredItems.length} record(s)</div>
           </div>
 
-          {/* Right: status tabs */}
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
               {TABS.map((tab) => (
@@ -244,10 +240,10 @@ export function SupplyCheckPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned Date</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Actual Date</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned 5 (AH)</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Actual 5 (AI)</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Status</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Delay</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Delay 5 (AJ)</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Updated By</TableHead>
                 </TableRow>
               </TableHeader>
@@ -260,9 +256,9 @@ export function SupplyCheckPage() {
                           <Button variant="ghost" size="icon" onClick={() => setDetailDialog({ open: true, item })} className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer" title="View details">
                             <Eye className="h-3.5 w-3.5" />
                           </Button>
-                          {item.status === 'pending' && (
+                          {!hasValue(item.actual5) && (
                             <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
-                              <ClipboardCheck className="h-3.5 w-3.5" />Supply Verified
+                              <ClipboardCheck className="h-3.5 w-3.5" />Verify Supply
                             </Button>
                           )}
                         </div>
@@ -276,22 +272,22 @@ export function SupplyCheckPage() {
                       </TableCell>
                       <TableCell className="py-4 text-left">
                         <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{formatDate(item.plannedDate)}
+                          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{formatDate(item.planned5)}
                         </span>
                       </TableCell>
                       <TableCell className="py-4 text-left">
-                        {item.actualDate ? (
+                        {hasValue(item.actual5) ? (
                           <span className="text-xs sm:text-sm text-foreground flex items-center gap-1">
-                            <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />{formatDate(item.actualDate)}
+                            <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />{formatDate(item.actual5)}
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground italic">Not yet</span>
                         )}
                       </TableCell>
                       <TableCell className="py-4 text-left">
-                        {item.status === 'completed' ? (
+                        {hasValue(item.actual5) ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                            <CheckCircle2 className="h-3 w-3" />Completed
+                            <CheckCircle2 className="h-3 w-3" />Checked
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
@@ -300,9 +296,9 @@ export function SupplyCheckPage() {
                         )}
                       </TableCell>
                       <TableCell className="py-4 text-left">
-                        {item.status === 'completed' ? (
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay)}`}>
-                            <Timer className="h-3 w-3" />{item.delay === 0 ? 'On time' : `${item.delay} day${item.delay > 1 ? 's' : ''}`}
+                        {hasValue(item.actual5) ? (
+                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay5)}`}>
+                            <Timer className="h-3 w-3" />{item.delay5 === 0 ? 'On time' : `${item.delay5} day(s)`}
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground italic">—</span>
@@ -321,15 +317,13 @@ export function SupplyCheckPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-16 text-center">
+                    <TableCell colSpan={9} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-primary/5 rounded-full"><ClipboardCheck className="h-8 w-8 text-primary/40" /></div>
                         <div className="space-y-1">
                           <p className="text-sm font-semibold text-foreground/70">No supply check records</p>
-                          <p className="text-xs">
-                            {items.length === 0
-                              ? 'No supply check records yet. Records will be automatically loaded from the previous stage.'
-                              : 'No records match your current filters.'}
+                          <p className="text-xs font-normal">
+                            No records match your current filters.
                           </p>
                         </div>
                       </div>
@@ -347,14 +341,14 @@ export function SupplyCheckPage() {
         <DialogContent className="sm:max-w-[440px] bg-card border-border shadow-xl rounded-2xl p-6">
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-emerald-500" />Confirm Supply Verified
+              <ClipboardCheck className="h-5 w-5 text-emerald-500" />Verify Received Supply
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-1">
-              This will mark the supply as verified and move the PO to Approve Product.
+              This will mark the received supply as checked and stamp Actual 5 (col AI).
             </DialogDescription>
           </DialogHeader>
           {confirmDialog.item && (
-            <div className="space-y-3 py-3">
+            <div className="space-y-3 py-3 text-left">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">PO Number</span>
                 <span className="font-semibold text-primary">{confirmDialog.item.poNumber}</span>
@@ -364,16 +358,16 @@ export function SupplyCheckPage() {
                 <span className="font-medium">{confirmDialog.item.vendorName}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Planned Date</span>
-                <span className="font-medium">{formatDate(confirmDialog.item.plannedDate)}</span>
+                <span className="text-muted-foreground">Planned 5 (AH)</span>
+                <span className="font-medium">{formatDate(confirmDialog.item.planned5)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Processed By</span>
+                <span className="text-muted-foreground">Verified By</span>
                 <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
               </div>
               <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                 <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5" />This action cannot be undone. The PO will advance to Approve Product.
+                  <AlertCircle className="h-3.5 w-3.5" />This will record Actual 5 (col AI) on the FMS sheet.
                 </p>
               </div>
             </div>
@@ -381,7 +375,7 @@ export function SupplyCheckPage() {
           <DialogFooter className="mt-4 gap-2">
             <Button variant="outline" onClick={() => setConfirmDialog({ open: false, item: null })} className="border-border hover:bg-accent rounded-xl cursor-pointer">Cancel</Button>
             <Button onClick={() => confirmDialog.item && handleMarkComplete(confirmDialog.item)} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5">
-              <ClipboardCheck className="h-4 w-4" />Confirm Verified
+              <ClipboardCheck className="h-4 w-4" />Verify Received
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -404,10 +398,10 @@ export function SupplyCheckPage() {
                 { label: 'Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
                 { label: 'Location', value: detailDialog.item.location },
                 { label: 'Address', value: detailDialog.item.address },
-                { label: 'Planned Date', value: formatDate(detailDialog.item.plannedDate) },
-                { label: 'Actual Date', value: detailDialog.item.actualDate ? formatDate(detailDialog.item.actualDate) : 'Not yet' },
-                { label: 'Status', value: detailDialog.item.status === 'completed' ? 'Completed' : 'Pending' },
-                { label: 'Delay', value: detailDialog.item.status === 'completed' ? (detailDialog.item.delay === 0 ? 'On time' : `${detailDialog.item.delay} day(s)`) : '—' },
+                { label: 'Planned 5 (AH)', value: formatDate(detailDialog.item.planned5) },
+                { label: 'Actual 5 (AI)', value: hasValue(detailDialog.item.actual5) ? formatDate(detailDialog.item.actual5) : 'Not yet' },
+                { label: 'Status', value: hasValue(detailDialog.item.actual5) ? 'Checked' : 'Pending' },
+                { label: 'Delay 5 (AJ)', value: hasValue(detailDialog.item.actual5) ? (detailDialog.item.delay5 === 0 ? 'On time' : `${detailDialog.item.delay5} day(s)`) : '—' },
                 { label: 'Updated By', value: detailDialog.item.updatedBy || '—' },
               ].map((row) => (
                 <div key={row.label} className="flex items-start justify-between text-sm gap-4">
