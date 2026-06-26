@@ -1,10 +1,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchSheet, insertRow, updateRow, deleteRow } from '@/services/api';
+import { fetchSheet, insertRow, updateCell, deleteRow } from '@/services/api';
+
+const isReadOnlyField = (h) =>
+  /^planned\d*$/i.test(h) ||
+  /^delay\d*$/i.test(h);
 
 // Convert an object to a flat row array in the order defined by the sheet headers.
 // Arrays (e.g. pageAccess) are JSON-serialised so they survive a round-trip.
+// Read-only fields (planned*, delay*) are always sent as '' so the sheet formula
+// is never overwritten.
 function toRow(headers, item) {
   return headers.map(h => {
+    if (isReadOnlyField(h)) return ''; // never overwrite sheet-computed columns
     const v = item[h];
     if (Array.isArray(v)) return JSON.stringify(v);
     return v != null ? String(v) : '';
@@ -13,6 +20,16 @@ function toRow(headers, item) {
 
 // Diff two snapshots of an entity array and return what changed.
 // oldArr contains _row; newArr may or may not (new items won't have it).
+// Read-only fields (planned*, delay*) are excluded from the comparison —
+// they are sheet-computed and never written back, so changes to them (e.g.
+// the sheet recalculates a delay after an actual date is saved) must not
+// generate spurious updateRow calls.
+function stripReadOnly(obj) {
+  return Object.fromEntries(
+    Object.entries(obj).filter(([k]) => !isReadOnlyField(k))
+  );
+}
+
 function diff(oldArr, newArr, keyField) {
   const oldMap = new Map(oldArr.map(x => [String(x[keyField]), x]));
   const newKeys = new Set(newArr.map(x => String(x[keyField])));
@@ -26,7 +43,8 @@ function diff(oldArr, newArr, keyField) {
       if (!prev) return false;
       const { _row: _a, ...a } = prev;
       const { _row: _b, ...b } = x;
-      return JSON.stringify(a) !== JSON.stringify(b);
+      // Compare only writable fields — ignore planned*/delay* differences
+      return JSON.stringify(stripReadOnly(a)) !== JSON.stringify(stripReadOnly(b));
     })
     .map(x => ({ ...x, _row: oldMap.get(String(x[keyField]))._row }));
 
@@ -123,21 +141,24 @@ export function useSheetData(sheetName, keyField) {
       }
     }
 
-    // ── updates ───────────────────────────────────────────────────────────
+    // ── updates — one updateCell call per changed writable field ─────────
+    // Only the fields that actually changed are sent. planned*/delay* are
+    // always excluded (isReadOnlyField) so sheet formulas are never touched.
     for (const item of changes.updates) {
-      try {
-        const prev = oldMap.get(String(item[keyField]));
-        const diffItem = { ...item };
-        if (prev) {
-          headers.current.forEach(h => {
-            if (h !== keyField && String(diffItem[h] ?? '') === String(prev[h] ?? '')) {
-              diffItem[h] = '';
-            }
-          });
+      const prev = oldMap.get(String(item[keyField]));
+      for (let i = 0; i < headers.current.length; i++) {
+        const h = headers.current[i];
+        if (isReadOnlyField(h)) continue; // never write planned* or delay*
+        const newVal = item[h] ?? '';
+        const oldVal = prev ? (prev[h] ?? '') : undefined;
+        // Skip fields that haven't changed
+        if (oldVal !== undefined && String(newVal) === String(oldVal)) continue;
+        const cellValue = Array.isArray(newVal) ? JSON.stringify(newVal) : String(newVal);
+        try {
+          await updateCell(sheetName, item._row, i + 1, cellValue);
+        } catch (err) {
+          console.error(`[useSheetData] updateCell failed for "${h}" in "${sheetName}":`, err);
         }
-        await updateRow(sheetName, item._row, toRow(headers.current, diffItem));
-      } catch (err) {
-        console.error(`[useSheetData] update failed in "${sheetName}":`, err);
       }
     }
 

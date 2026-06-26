@@ -147,6 +147,7 @@ export function DashboardPage() {
   // Interactive chart state
   const [hoveredVendor, setHoveredVendor] = useState(null);
   const [hoveredLocationIdx, setHoveredLocationIdx] = useState(null);
+  const [activeTrackerTab, setActiveTrackerTab] = useState('pending');
 
   // ─── Combine Stage States ──────────────────────────────────────────
   const stages = useMemo(() => ({
@@ -289,6 +290,28 @@ export function DashboardPage() {
       };
     }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   }, [displayPOs, getStageDetails]);
+
+  const trackerCounts = useMemo(() => {
+    let pending = 0;
+    let history = 0;
+    poTrackerList.forEach(po => {
+      if (po.stage === 'Completed') {
+        history++;
+      } else {
+        pending++;
+      }
+    });
+    return { pending, history };
+  }, [poTrackerList]);
+
+  const filteredTrackerList = useMemo(() => {
+    return poTrackerList.filter(po => {
+      const isCompleted = po.stage === 'Completed';
+      if (activeTrackerTab === 'pending') return !isCompleted;
+      if (activeTrackerTab === 'history') return isCompleted;
+      return true;
+    });
+  }, [poTrackerList, activeTrackerTab]);
 
   // Format Date Helper
   const formatTimestamp = (isoString) => {
@@ -613,7 +636,7 @@ export function DashboardPage() {
                     </span>
                   </div>
                   <div className="flex flex-col text-left">
-                    <span className="text-[9px] text-muted-foreground uppercase font-semibold">Completed</span>
+                    <span className="text-[9px] text-muted-foreground uppercase font-semibold">History</span>
                     <span className={`text-sm font-black mt-0.5 ${stage.completed > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground/60'}`}>
                       {stage.completed}
                     </span>
@@ -630,7 +653,29 @@ export function DashboardPage() {
         <CardHeader className="py-4 px-5 border-b border-border bg-neutral-50/50 dark:bg-neutral-900/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
           <div>
             <CardTitle className="text-base font-bold text-foreground">Purchase Order Stage Tracker</CardTitle>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Real-time status tracking of all active procurement runs in reverse chronological order</p>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Real-time status tracking of all procurement runs in reverse chronological order</p>
+          </div>
+          
+          {/* Tracker Tabs */}
+          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setActiveTrackerTab('pending')}
+              className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                activeTrackerTab === 'pending' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Pending<span className="ml-1.5 text-[10px] opacity-70">({trackerCounts.pending})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTrackerTab('history')}
+              className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                activeTrackerTab === 'history' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              History<span className="ml-1.5 text-[10px] opacity-70">({trackerCounts.history})</span>
+            </button>
           </div>
         </CardHeader>
         
@@ -648,8 +693,8 @@ export function DashboardPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {poTrackerList.length > 0 ? (
-                  poTrackerList.map((po) => (
+                {filteredTrackerList.length > 0 ? (
+                  filteredTrackerList.map((po) => (
                     <TableRow key={po.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
                       
                       {/* PO Number */}

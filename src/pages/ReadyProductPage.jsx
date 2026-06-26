@@ -77,9 +77,8 @@ const makeTimestamp = () => {
 // ─── Status tabs ────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
-  { key: 'completed', label: 'Completed' },
+  { key: 'history', label: 'History' },
 ];
 
 // ─── Component ──────────────────────────────────────────────────────
@@ -93,7 +92,7 @@ export function ReadyProductPage() {
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('pending');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
 
@@ -128,7 +127,7 @@ export function ReadyProductPage() {
     let list = readyProducts.filter((r) => hasValue(r.planned2));
 
     if (activeTab === 'pending') list = list.filter(isPending);
-    else if (activeTab === 'completed') list = list.filter(isCompleted);
+    else if (activeTab === 'history') list = list.filter(isCompleted);
 
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
@@ -149,10 +148,13 @@ export function ReadyProductPage() {
   const counts = useMemo(
     () => {
       const staged = readyProducts.filter((r) => hasValue(r.planned2));
+      const pendingCount = staged.filter(isPending).length;
+      const historyCount = staged.filter(isCompleted).length;
       return {
         all: staged.length,
-        pending: staged.filter(isPending).length,
-        completed: staged.filter(isCompleted).length,
+        pending: pendingCount,
+        history: historyCount,
+        completed: historyCount,
       };
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps

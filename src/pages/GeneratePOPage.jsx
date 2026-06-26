@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useSheetData } from '@/hooks/useSheetData';
@@ -38,6 +38,13 @@ import {
   Edit2
 } from 'lucide-react';
 
+const TABS = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'history', label: 'History' },
+];
+
+const hasValue = (val) => val != null && String(val).trim() !== '';
+
 export function GeneratePOPage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
@@ -50,6 +57,7 @@ export function GeneratePOPage() {
 
   // Search & filter
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('pending');
 
   // Dialog / Modal Visibility & Mode Control
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -292,13 +300,39 @@ export function GeneratePOPage() {
     }
   };
 
+  // Tab counts
+  const counts = useMemo(() => {
+    return {
+      all: purchaseOrders.length,
+      pending: purchaseOrders.filter(po => !hasValue(po.planned1)).length,
+      history: purchaseOrders.filter(po => hasValue(po.planned1)).length,
+    };
+  }, [purchaseOrders]);
+
   // Filter purchase orders
-  const filteredPOs = purchaseOrders.filter(po =>
-    String(po.poNumber   || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(po.vendorName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(po.location   || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(po.createdBy  || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPOs = useMemo(() => {
+    let list = purchaseOrders;
+
+    // Tab filter
+    if (activeTab === 'pending') {
+      list = list.filter(po => !hasValue(po.planned1));
+    } else if (activeTab === 'history') {
+      list = list.filter(po => hasValue(po.planned1));
+    }
+
+    // Search filter
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      list = list.filter(po =>
+        String(po.poNumber   || '').toLowerCase().includes(q) ||
+        String(po.vendorName || '').toLowerCase().includes(q) ||
+        String(po.location   || '').toLowerCase().includes(q) ||
+        String(po.createdBy  || '').toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [purchaseOrders, activeTab, searchTerm]);
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
@@ -318,7 +352,7 @@ export function GeneratePOPage() {
       {/* Main Table View Card (Full Width) */}
       <Card className="border-border bg-card shadow-sm rounded-2xl">
         <CardHeader className="py-4 px-4 md:px-6 border-b border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
@@ -328,8 +362,25 @@ export function GeneratePOPage() {
                 className="pl-9 rounded-xl border-input bg-background h-9 text-xs sm:text-sm max-w-xs"
               />
             </div>
+
+            {/* Status Tabs */}
+            <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                    activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab.label}<span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
+                </button>
+              ))}
+            </div>
+
             <div className="text-xs text-muted-foreground hidden md:inline-block">
-              Total: {filteredPOs.length} record(s)
+              {filteredPOs.length} record(s)
             </div>
           </div>
 

@@ -78,9 +78,8 @@ const makeTimestamp = () => {
 };
 
 const TABS = [
-  { key: 'all', label: 'All' },
   { key: 'pending', label: 'Pending' },
-  { key: 'completed', label: 'Completed' },
+  { key: 'history', label: 'History' },
 ];
 
 // ─── Component ──────────────────────────────────────────────────────
@@ -94,7 +93,7 @@ export function PrintInvoicePage() {
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('pending');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
 
@@ -435,7 +434,7 @@ export function PrintInvoicePage() {
     let list = fmsData.filter((r) => hasValue(r.planned4));
 
     if (activeTab === 'pending') list = list.filter(isPending);
-    else if (activeTab === 'completed') list = list.filter(isCompleted);
+    else if (activeTab === 'history') list = list.filter(isCompleted);
 
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
@@ -453,10 +452,13 @@ export function PrintInvoicePage() {
 
   const counts = useMemo(() => {
     const staged = fmsData.filter((r) => hasValue(r.planned4));
+    const pendingCount = staged.filter(isPending).length;
+    const historyCount = staged.filter(isCompleted).length;
     return {
       all: staged.length,
-      pending: staged.filter(isPending).length,
-      completed: staged.filter(isCompleted).length,
+      pending: pendingCount,
+      history: historyCount,
+      completed: historyCount,
     };
   }, [fmsData]);
 
