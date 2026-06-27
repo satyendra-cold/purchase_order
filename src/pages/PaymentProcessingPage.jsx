@@ -31,6 +31,8 @@ import {
   CalendarClock,
   Eye,
   Banknote,
+  CheckCircle2,
+  Clock,
 } from 'lucide-react';
 
 // ─── Helpers ─────────────────────────────────────────────────────────
@@ -72,18 +74,26 @@ const fmt = (n) =>
     ? `₹${Number(n).toLocaleString('en-IN')}`
     : '—';
 
+const TABS = [
+  { key: 'pending', label: 'Pending' },
+  { key: 'history', label: 'History' },
+];
+
 // ─── Component ───────────────────────────────────────────────────────
 
 export function PaymentProcessingPage() {
   const { toast } = useToast();
 
   const [fmsData] = useSheetData('FMS', 'poNumber');
+  // null keyField → reads all rows without deduplication
+  const [paymentHistoryData] = useSheetData('payment history', null);
   const [vendors] = useSheetData('Vendors', 'id');
   const [locationData] = useSheetData('Locations', 'name');
   const locations = locationData.map((l) => l.name);
 
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('pending');
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
   const [isSaving, setIsSaving] = useState(false);
@@ -97,6 +107,12 @@ export function PaymentProcessingPage() {
   const [formPaymentAmount, setFormPaymentAmount] = useState('');
 
   const qualifies = (row) => hasValue(row.planned7);
+
+  // PO numbers that have at least one entry in the payment history sheet
+  const paidPoNumbers = useMemo(
+    () => new Set(paymentHistoryData.map((r) => String(r['PO Number'] || '').trim())),
+    [paymentHistoryData]
+  );
 
   // ── Open payment dialog ───────────────────────────────────────────
   const handleOpenPayment = (item) => {
@@ -132,6 +148,12 @@ export function PaymentProcessingPage() {
 
     const nowTimestamp = makeTimestamp();
 
+    // Instalment number = count of existing rows for this PO + 1
+    const instalmentNo =
+      paymentHistoryData.filter(
+        (r) => String(r['PO Number'] || '').trim() === String(formPoNumber).trim()
+      ).length + 1;
+
     setPayDialog({ open: false, item: null });
     setIsSaving(true);
 
@@ -139,7 +161,7 @@ export function PaymentProcessingPage() {
       // Columns: Timestamp | Serial No | PO Number | Vendor Name | Bill Amount | Received Amount
       await insertRow('payment history', [
         nowTimestamp,
-        1,
+        instalmentNo,
         formPoNumber,
         formVendor,
         billAmt,
@@ -147,7 +169,7 @@ export function PaymentProcessingPage() {
       ]);
 
       toast(
-        `Payment of ₹${amountToAdd.toLocaleString('en-IN')} recorded for ${formPoNumber}.`,
+        `Payment #${instalmentNo} of ₹${amountToAdd.toLocaleString('en-IN')} recorded for ${formPoNumber}.`,
         'success'
       );
     } catch (err) {
@@ -160,6 +182,11 @@ export function PaymentProcessingPage() {
   // ── Filtered list ─────────────────────────────────────────────────
   const filteredItems = useMemo(() => {
     let list = fmsData.filter(qualifies);
+    if (activeTab === 'pending') {
+      list = list.filter((r) => !paidPoNumbers.has(String(r.poNumber)));
+    } else if (activeTab === 'history') {
+      list = list.filter((r) => paidPoNumbers.has(String(r.poNumber)));
+    }
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       list = list.filter(
@@ -171,12 +198,17 @@ export function PaymentProcessingPage() {
       );
     }
     return list;
-  }, [fmsData, searchTerm]);
+  }, [fmsData, activeTab, searchTerm, paidPoNumbers]);
 
-  const totalBillAmount = useMemo(
-    () => fmsData.filter(qualifies).reduce((s, r) => s + (Number(r.billAmount) || 0), 0),
-    [fmsData]
-  );
+  const counts = useMemo(() => {
+    const staged = fmsData.filter(qualifies);
+    return {
+      pending: staged.filter((r) => !paidPoNumbers.has(String(r.poNumber))).length,
+      history: staged.filter((r) => paidPoNumbers.has(String(r.poNumber))).length,
+      totalBillAmount: staged.reduce((s, r) => s + (Number(r.billAmount) || 0), 0),
+      all: staged.length,
+    };
+  }, [fmsData, paidPoNumbers]);
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
@@ -191,7 +223,7 @@ export function PaymentProcessingPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 gap-4 max-w-md">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Card className="border-border bg-card shadow-sm rounded-2xl">
           <CardContent className="py-4 px-5 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
@@ -199,7 +231,34 @@ export function PaymentProcessingPage() {
             </div>
             <div className="text-left min-w-0">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Bill</p>
-              <p className="text-base font-bold text-foreground truncate">{fmt(totalBillAmount)}</p>
+              <p className="text-base font-bold text-foreground truncate">{fmt(counts.totalBillAmount)}</p>
+              <p className="text-[10px] text-muted-foreground">{counts.all} record{counts.all !== 1 ? 's' : ''}</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card shadow-sm rounded-2xl">
+          <CardContent className="py-4 px-5 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+              <Clock className="h-5 w-5" />
+            </div>
+            <div className="text-left min-w-0">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pending</p>
+              <p className="text-base font-bold text-amber-700 dark:text-amber-300 truncate">{counts.pending}</p>
+              <p className="text-[10px] text-muted-foreground">awaiting payment</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border bg-card shadow-sm rounded-2xl">
+          <CardContent className="py-4 px-5 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
+              <CheckCircle2 className="h-5 w-5" />
+            </div>
+            <div className="text-left min-w-0">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Paid</p>
+              <p className="text-base font-bold text-emerald-700 dark:text-emerald-300 truncate">{counts.history}</p>
+              <p className="text-[10px] text-muted-foreground">payment recorded</p>
             </div>
           </CardContent>
         </Card>
@@ -210,8 +269,9 @@ export function PaymentProcessingPage() {
               <Banknote className="h-5 w-5" />
             </div>
             <div className="text-left min-w-0">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Records</p>
-              <p className="text-base font-bold text-foreground truncate">{fmsData.filter(qualifies).length}</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Instalments</p>
+              <p className="text-base font-bold text-foreground truncate">{paymentHistoryData.length}</p>
+              <p className="text-[10px] text-muted-foreground">total entries</p>
             </div>
           </CardContent>
         </Card>
@@ -234,6 +294,24 @@ export function PaymentProcessingPage() {
               {filteredItems.length} record(s)
             </div>
           </div>
+
+          {/* Tabs */}
+          <div className="flex items-center gap-1 bg-neutral-100 dark:bg-neutral-800/60 p-1 rounded-xl self-end sm:self-center">
+            {TABS.map((tab) => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                  activeTab === tab.key
+                    ? 'bg-card text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab.label}
+                <span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
+              </button>
+            ))}
+          </div>
         </CardHeader>
 
         <CardContent className="p-0">
@@ -253,73 +331,81 @@ export function PaymentProcessingPage() {
               </TableHeader>
               <TableBody>
                 {filteredItems.length > 0 ? (
-                  filteredItems.map((item) => (
-                    <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
-                      {/* Actions */}
-                      <TableCell className="pl-4 md:pl-6 py-4 text-left">
-                        <div className="flex items-center gap-1.5">
-                          <Button
-                            variant="ghost" size="icon"
-                            onClick={() => setDetailDialog({ open: true, item })}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                            title="View details"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            onClick={() => handleOpenPayment(item)}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
-                          >
-                            <CreditCard className="h-3.5 w-3.5" />Receive Payment
-                          </Button>
-                        </div>
-                      </TableCell>
+                  filteredItems.map((item) => {
+                    const hasPaid = paidPoNumbers.has(String(item.poNumber));
+                    return (
+                      <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
+                        {/* Actions */}
+                        <TableCell className="pl-4 md:pl-6 py-4 text-left">
+                          <div className="flex items-center gap-1.5">
+                            <Button
+                              variant="ghost" size="icon"
+                              onClick={() => setDetailDialog({ open: true, item })}
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
+                              title="View details"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              onClick={() => handleOpenPayment(item)}
+                              className={`gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm text-white ${
+                                hasPaid
+                                  ? 'bg-blue-600 hover:bg-blue-700'
+                                  : 'bg-emerald-600 hover:bg-emerald-700'
+                              }`}
+                            >
+                              <CreditCard className="h-3.5 w-3.5" />
+                              {hasPaid ? 'Add Payment' : 'Receive Payment'}
+                            </Button>
+                          </div>
+                        </TableCell>
 
-                      <TableCell className="pl-2 py-4 text-left font-semibold text-primary text-xs sm:text-sm">
-                        {item.poNumber}
-                      </TableCell>
+                        <TableCell className="pl-2 py-4 text-left font-semibold text-primary text-xs sm:text-sm">
+                          {item.poNumber}
+                        </TableCell>
 
-                      <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">
-                        {item.vendorName}
-                      </TableCell>
+                        <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">
+                          {item.vendorName}
+                        </TableCell>
 
-                      <TableCell className="py-4 text-left">
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
-                          <MapPin className="h-2.5 w-2.5 text-muted-foreground" />{item.location}
-                        </span>
-                      </TableCell>
-
-                      <TableCell className="py-4 text-left text-xs sm:text-sm font-semibold text-foreground">
-                        {item.billAmount ? fmt(Number(item.billAmount)) : '—'}
-                      </TableCell>
-
-                      <TableCell className="py-4 text-left">
-                        <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                          <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{formatDate(item.planned7)}
-                        </span>
-                      </TableCell>
-
-                      <TableCell className="py-4 text-left">
-                        {hasValue(item.actual7) ? (
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay7)}`}>
-                            <Timer className="h-3 w-3" />{item.delay7 === 0 ? 'On time' : `${item.delay7} day(s)`}
+                        <TableCell className="py-4 text-left">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
+                            <MapPin className="h-2.5 w-2.5 text-muted-foreground" />{item.location}
                           </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">—</span>
-                        )}
-                      </TableCell>
+                        </TableCell>
 
-                      <TableCell className="py-4 text-left">
-                        {item.updatedBy ? (
+                        <TableCell className="py-4 text-left text-xs sm:text-sm font-semibold text-foreground">
+                          {item.billAmount ? fmt(Number(item.billAmount)) : '—'}
+                        </TableCell>
+
+                        <TableCell className="py-4 text-left">
                           <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                            <User className="h-3.5 w-3.5 text-muted-foreground" />{item.updatedBy}
+                            <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{formatDate(item.planned7)}
                           </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">—</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+
+                        <TableCell className="py-4 text-left">
+                          {hasValue(item.actual7) ? (
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay7)}`}>
+                              <Timer className="h-3 w-3" />{item.delay7 === 0 ? 'On time' : `${item.delay7} day(s)`}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">—</span>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="py-4 text-left">
+                          {item.updatedBy ? (
+                            <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
+                              <User className="h-3.5 w-3.5 text-muted-foreground" />{item.updatedBy}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">—</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={8} className="py-16 text-center">
@@ -328,7 +414,7 @@ export function PaymentProcessingPage() {
                           <CreditCard className="h-8 w-8 text-primary/40" />
                         </div>
                         <div className="space-y-1">
-                          <p className="text-sm font-semibold text-foreground/70">No payment records</p>
+                          <p className="text-sm font-semibold text-foreground/70">No records</p>
                           <p className="text-xs">No records match your current filters.</p>
                         </div>
                       </div>
