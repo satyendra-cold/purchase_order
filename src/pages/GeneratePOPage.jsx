@@ -218,9 +218,10 @@ export function GeneratePOPage() {
         // ── Create: close form immediately, submit in background ──────────────
         const createdBy = currentUser ? (currentUser.name || currentUser.username) : 'System';
         const existingSerials = purchaseOrders
-          .map(po => parseInt(po.serialNo || 0, 10))
+          .map(po => { const m = String(po.serialNo || '').match(/(\d+)$/); return m ? parseInt(m[1], 10) : NaN; })
           .filter(n => !isNaN(n) && n > 0);
-        const nextSerialNo = existingSerials.length > 0 ? Math.max(...existingSerials) + 1 : 1;
+        const nextSerialRaw = existingSerials.length > 0 ? Math.max(...existingSerials) + 1 : 1;
+        const nextSerialNo = `SH-${String(nextSerialRaw).padStart(3, '0')}`;
 
         const timestamp = makeTimestamp();
 
