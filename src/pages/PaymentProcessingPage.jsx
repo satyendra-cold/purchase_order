@@ -141,9 +141,7 @@ export function PaymentProcessingPage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
-  const [fmsData, setFmsData, , refetchFMS] = useSheetData('FMS', 'poNumber', {
-    onError: (msg) => toast(msg, 'error'),
-  });
+  const [fmsData, , , refetchFMS, setFmsLocal, patchFMS] = useSheetData('FMS', 'poNumber');
   const [vendors] = useSheetData('Vendors', 'id');
   const [locationData] = useSheetData('Locations', 'name');
   const locations = locationData.map((l) => l.name);
@@ -153,6 +151,7 @@ export function PaymentProcessingPage() {
   const [activeTab, setActiveTab] = useState('pending');
   const [payDialog, setPayDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
+  const [isSaving, setIsSaving] = useState(false);
 
   // Payment form state
   const [formVendor, setFormVendor] = useState('');
@@ -180,7 +179,7 @@ export function PaymentProcessingPage() {
   };
 
   // ── Submit instalment ───────────────────────────────────────────
-  const handlePaymentSubmit = (e) => {
+  const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     const item = payDialog.item;
     if (!item) return;
@@ -191,14 +190,12 @@ export function PaymentProcessingPage() {
       return;
     }
 
-    // Use formBillingAmount (user-entered) as source of truth for bill
     const billAmt = Number(formBillingAmount || item.billAmount || 0);
     if (!billAmt || billAmt <= 0) {
       toast('Please enter a valid billing amount.', 'error');
       return;
     }
 
-    // Compute remaining balance from the current billing amount + existing history
     const existingHistory = parseHistory(item);
     const alreadyPaid = existingHistory.length > 0
       ? existingHistory.reduce((s, i) => s + Number(i.amount), 0)
@@ -212,43 +209,48 @@ export function PaymentProcessingPage() {
 
     const nowTimestamp = makeTimestamp();
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
-
     const newHistory = [...existingHistory, { amount: amountToAdd, date: nowTimestamp }];
     const newTotalPaid = newHistory.reduce((s, i) => s + Number(i.amount), 0);
     const newBalance = Math.max(0, billAmt - newTotalPaid);
     const isNowFullyPaid = newTotalPaid >= billAmt;
-    const newStatus = isNowFullyPaid ? 'Fully Paid' : 'Partial';
 
-    const updated = fmsData.map((r) =>
-      r.poNumber === item.poNumber
-        ? {
-            ...r,
-            vendorName: formVendor.trim(),
-            location: formLocation,
-            address: formAddress.trim(),
-            billAmount: billAmt,
-            paymentHistory: JSON.stringify(newHistory),
-            totalPaid: newTotalPaid,
-            balanceDue: newBalance,
-            paymentStatus: newStatus,
-            ...(isNowFullyPaid && !hasValue(r.actual7)
-              ? { actual7: nowTimestamp }
-              : {}),
-            updatedBy: userName,
-          }
-        : r
-    );
-    setFmsData(updated).then(() => refetchFMS());
+    const paymentFields = {
+      vendorName: formVendor.trim(),
+      location: formLocation,
+      address: formAddress.trim(),
+      billAmount: billAmt,
+      paymentHistory: JSON.stringify(newHistory),
+      totalPaid: newTotalPaid,
+      balanceDue: newBalance,
+      paymentStatus: isNowFullyPaid ? 'Fully Paid' : 'Partial',
+      updatedBy: userName,
+      ...(isNowFullyPaid && !hasValue(item.actual7) ? { actual7: nowTimestamp } : {}),
+    };
 
-    if (isNowFullyPaid) {
-      toast(`Payment for ${formPoNumber} fully completed! ✅`, 'success');
-    } else {
-      toast(
-        `Instalment #${newHistory.length} of ₹${amountToAdd.toLocaleString('en-IN')} recorded. Balance: ₹${newBalance.toLocaleString('en-IN')}`,
-        'success'
-      );
-    }
+    // Close dialog and show optimistic update immediately
     setPayDialog({ open: false, item: null });
+    setFmsLocal(fmsData.map((r) =>
+      r.poNumber === item.poNumber ? { ...r, ...paymentFields } : r
+    ));
+    setIsSaving(true);
+
+    try {
+      // Write directly to sheet — throws on any failure
+      await patchFMS(item.poNumber, paymentFields);
+      if (isNowFullyPaid) {
+        toast(`Payment for ${formPoNumber} fully completed! ✅`, 'success');
+      } else {
+        toast(
+          `Instalment #${newHistory.length} of ₹${amountToAdd.toLocaleString('en-IN')} recorded. Balance: ₹${newBalance.toLocaleString('en-IN')}`,
+          'success'
+        );
+      }
+    } catch (err) {
+      toast(`Failed to save payment: ${err.message}`, 'error');
+      refetchFMS(); // revert optimistic update by reloading from sheet
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   // ── Filtered list ───────────────────────────────────────────────
@@ -728,8 +730,8 @@ export function PaymentProcessingPage() {
               <Button type="button" variant="outline" onClick={() => setPayDialog({ open: false, item: null })} className="border-border hover:bg-accent rounded-xl cursor-pointer">
                 Cancel
               </Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5">
-                <Banknote className="h-4 w-4" />Record Instalment #{dialogHistory.length + 1}
+              <Button type="submit" disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5 disabled:opacity-60">
+                <Banknote className="h-4 w-4" />{isSaving ? 'Saving...' : `Record Instalment #${dialogHistory.length + 1}`}
               </Button>
             </DialogFooter>
           </form>

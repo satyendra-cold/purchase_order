@@ -186,7 +186,7 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
     }
   }, [sheetName, keyField]); // stable — does not depend on data state
 
-  // ── Refetch: reload data from sheet (call after a direct insertRow) ──────
+  // ── Refetch: reload data from sheet ──────────────────────────────────────
   const refetch = useCallback(() => {
     setLoading(true);
     fetchSheet(sheetName)
@@ -199,5 +199,40 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
       .finally(() => setLoading(false));
   }, [sheetName]);
 
-  return [data, setData, loading, refetch];
+  // ── setLocalOnly: update React state WITHOUT syncing to sheet ─────────────
+  // Use for optimistic updates when you handle the sheet sync yourself (patchItem).
+  const setLocalOnly = useCallback((valueOrUpdater) => {
+    const newClean =
+      typeof valueOrUpdater === 'function'
+        ? valueOrUpdater(dataRef.current)
+        : valueOrUpdater;
+    const oldMap = new Map(internal.current.map(x => [String(x[keyField]), x]));
+    internal.current = newClean.map(x => {
+      const prev = oldMap.get(String(x[keyField]));
+      return prev ? { ...x, _row: prev._row } : { ...x };
+    });
+    setDataState(newClean);
+  }, [keyField]);
+
+  // ── patchItem: write specific fields directly to sheet ────────────────────
+  // Bypasses the diff mechanism. Throws on any failure so callers can handle it.
+  const patchItem = useCallback(async (keyValue, fields) => {
+    const internalItem = internal.current.find(
+      x => String(x[keyField]) === String(keyValue)
+    );
+    if (!internalItem?._row) throw new Error('Row not found — try refreshing the page.');
+    if (!headers.current.length) throw new Error('Sheet not loaded — try refreshing the page.');
+
+    for (let i = 0; i < headers.current.length; i++) {
+      const h = headers.current[i];
+      if (!(h in fields)) continue;
+      if (isReadOnlyField(h)) continue;
+      const v = fields[h];
+      const cellValue =
+        v == null ? '' : Array.isArray(v) ? JSON.stringify(v) : String(v);
+      await updateCell(sheetName, internalItem._row, i + 1, cellValue);
+    }
+  }, [sheetName, keyField]);
+
+  return [data, setData, loading, refetch, setLocalOnly, patchItem];
 }
