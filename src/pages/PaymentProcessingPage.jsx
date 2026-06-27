@@ -189,8 +189,21 @@ export function PaymentProcessingPage() {
       return;
     }
 
-    const balance = balanceDueLocal(item);
-    if (balance !== null && amountToAdd > balance) {
+    // Use formBillingAmount (user-entered) as source of truth for bill
+    const billAmt = Number(formBillingAmount || item.billAmount || 0);
+    if (!billAmt || billAmt <= 0) {
+      toast('Please enter a valid billing amount.', 'error');
+      return;
+    }
+
+    // Compute remaining balance from the current billing amount + existing history
+    const existingHistory = parseHistory(item);
+    const alreadyPaid = existingHistory.length > 0
+      ? existingHistory.reduce((s, i) => s + Number(i.amount), 0)
+      : Number(item.totalPaid) || 0;
+    const balance = Math.max(0, billAmt - alreadyPaid);
+
+    if (amountToAdd > balance) {
       toast(`Amount exceeds balance due (${fmt(balance)}). Please enter ≤ balance.`, 'error');
       return;
     }
@@ -198,17 +211,11 @@ export function PaymentProcessingPage() {
     const nowTimestamp = makeTimestamp();
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
 
-    // Build new history array by appending the new payment
-    const existingHistory = parseHistory(item);
     const newHistory = [...existingHistory, { amount: amountToAdd, date: nowTimestamp }];
-
-    const billAmt = Number(formBillingAmount || item.billAmount || 0);
     const newTotalPaid = newHistory.reduce((s, i) => s + Number(i.amount), 0);
-    const newBalance = billAmt > 0 ? Math.max(0, billAmt - newTotalPaid) : 0;
-    const newStatus = billAmt > 0
-      ? (newTotalPaid >= billAmt ? 'Fully Paid' : 'Partial')
-      : 'Unpaid';
-    const isNowFullyPaid = billAmt > 0 && newTotalPaid >= billAmt;
+    const newBalance = Math.max(0, billAmt - newTotalPaid);
+    const isNowFullyPaid = newTotalPaid >= billAmt;
+    const newStatus = isNowFullyPaid ? 'Fully Paid' : 'Partial';
 
     const updated = fmsData.map((r) =>
       r.poNumber === item.poNumber
@@ -217,14 +224,11 @@ export function PaymentProcessingPage() {
             vendorName: formVendor.trim(),
             location: formLocation,
             address: formAddress.trim(),
-            billAmount: billAmt || null,
-            // Single JSON column — stores ALL payments dynamically
+            billAmount: billAmt,
             paymentHistory: JSON.stringify(newHistory),
-            // App writes these directly (no sheet formula needed)
             totalPaid: newTotalPaid,
             balanceDue: newBalance,
             paymentStatus: newStatus,
-            // Auto-stamp Actual 7 when fully paid
             ...(isNowFullyPaid && !hasValue(r.actual7)
               ? { actual7: nowTimestamp }
               : {}),
@@ -237,9 +241,8 @@ export function PaymentProcessingPage() {
     if (isNowFullyPaid) {
       toast(`Payment for ${formPoNumber} fully completed! ✅`, 'success');
     } else {
-      const remaining = billAmt - newTotalPaid;
       toast(
-        `Instalment #${newHistory.length} of ₹${amountToAdd.toLocaleString('en-IN')} recorded. Balance: ₹${remaining.toLocaleString('en-IN')}`,
+        `Instalment #${newHistory.length} of ₹${amountToAdd.toLocaleString('en-IN')} recorded. Balance: ₹${newBalance.toLocaleString('en-IN')}`,
         'success'
       );
     }
@@ -354,7 +357,7 @@ export function PaymentProcessingPage() {
             <div className="text-left min-w-0">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Pending</p>
               <p className="text-base font-bold text-amber-700 dark:text-amber-300 truncate">{fmt(counts.totalPendingAmount)}</p>
-              <p className="text-[10px] text-muted-foreground">{counts.pending + counts.partial} record{(counts.pending + counts.partial) !== 1 ? 's' : ''}</p>
+              <p className="text-[10px] text-muted-foreground">{counts.pending} record{counts.pending !== 1 ? 's' : ''}</p>
             </div>
           </CardContent>
         </Card>
@@ -685,7 +688,7 @@ export function PaymentProcessingPage() {
               <div className="space-y-1.5 text-left">
                 <Label className="text-xs font-semibold text-muted-foreground pl-0.5">Billing Amount (INR)*</Label>
                 <Input
-                  type="number" min="0" step="0.01"
+                  type="number" min="1" step="0.01"
                   value={formBillingAmount}
                   onChange={(e) => setFormBillingAmount(e.target.value)}
                   placeholder="Total bill amount"
