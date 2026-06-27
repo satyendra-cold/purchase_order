@@ -243,10 +243,9 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
       );
     }
 
-    // Single atomic write — merge existing values with the patched fields
-    // toRow sends '' for unknown/read-only columns so existing sheet values are preserved
-    const mergedItem = { ...internalItem, ...fields };
-    const rowData = toRow(headers.current, mergedItem);
+    // Single atomic write — only write the fields specified in `fields`
+    // toRow sends '' for any field not present in `fields` so they are not overwritten in the sheet
+    const rowData = toRow(headers.current, fields);
     await updateRow(sheetName, internalItem._row, rowData);
   }, [sheetName, keyField]);
 
