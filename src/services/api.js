@@ -17,9 +17,9 @@ async function getParams(params) {
   return json;
 }
 
-// ── POST: routed through Vite proxy in dev to avoid CORS ──────────────────
+// ── POST: always routed through /api/upload (Vite proxy in dev, Vercel function in prod)
 async function postParams(params) {
-  const url = import.meta.env.DEV ? '/api/upload' : SCRIPT_URL;
+  const url = '/api/upload';
   const res = await fetch(url, {
     method: 'POST',
     headers: {

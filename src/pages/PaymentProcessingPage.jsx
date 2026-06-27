@@ -141,7 +141,9 @@ export function PaymentProcessingPage() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
 
-  const [fmsData, setFmsData] = useSheetData('FMS', 'poNumber');
+  const [fmsData, setFmsData, , refetchFMS] = useSheetData('FMS', 'poNumber', {
+    onError: (msg) => toast(msg, 'error'),
+  });
   const [vendors] = useSheetData('Vendors', 'id');
   const [locationData] = useSheetData('Locations', 'name');
   const locations = locationData.map((l) => l.name);
@@ -236,7 +238,7 @@ export function PaymentProcessingPage() {
           }
         : r
     );
-    setFmsData(updated);
+    setFmsData(updated).then(() => refetchFMS());
 
     if (isNowFullyPaid) {
       toast(`Payment for ${formPoNumber} fully completed! ✅`, 'success');
@@ -323,7 +325,7 @@ export function PaymentProcessingPage() {
         {/* Total Bill Amount */}
         <Card className="border-border bg-card shadow-sm rounded-2xl">
           <CardContent className="py-4 px-5 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-primary/10 text-primary flex-shrink-0">
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
               <CreditCard className="h-5 w-5" />
             </div>
             <div className="text-left min-w-0">
@@ -337,7 +339,7 @@ export function PaymentProcessingPage() {
         {/* Total Paid */}
         <Card className="border-border bg-card shadow-sm rounded-2xl">
           <CardContent className="py-4 px-5 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex-shrink-0">
+            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
               <Banknote className="h-5 w-5" />
             </div>
             <div className="text-left min-w-0">
@@ -351,7 +353,7 @@ export function PaymentProcessingPage() {
         {/* Total Pending (Balance Due) */}
         <Card className="border-border bg-card shadow-sm rounded-2xl">
           <CardContent className="py-4 px-5 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex-shrink-0">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
               <AlertCircle className="h-5 w-5" />
             </div>
             <div className="text-left min-w-0">
@@ -365,7 +367,7 @@ export function PaymentProcessingPage() {
         {/* Fully Paid */}
         <Card className="border-border bg-card shadow-sm rounded-2xl">
           <CardContent className="py-4 px-5 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex-shrink-0">
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <div className="text-left min-w-0">
@@ -623,7 +625,7 @@ export function PaymentProcessingPage() {
                     </p>
                     {dialogHistory.map((inst, idx) => (
                       <div key={idx} className="flex items-center gap-2 text-[11px]">
-                        <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                        <span className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center justify-center text-[9px] font-bold shrink-0">
                           {idx + 1}
                         </span>
                         <span className="text-muted-foreground flex-1">{formatDate(inst.date)}</span>
@@ -807,7 +809,7 @@ export function PaymentProcessingPage() {
                     <div className="space-y-2">
                       {dHistory.map((inst, idx) => (
                         <div key={idx} className="flex items-center gap-3">
-                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center justify-center text-[10px] font-bold">
+                          <div className="shrink-0 w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center justify-center text-[10px] font-bold">
                             {idx + 1}
                           </div>
                           <div className="flex-1 flex justify-between text-xs">

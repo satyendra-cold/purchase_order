@@ -65,7 +65,7 @@ function diff(oldArr, newArr, keyField) {
  * The hook tracks sheet row indices internally so it can issue precise
  * insertRow / updateRow / deleteRow calls without needing a full sheet rewrite.
  */
-export function useSheetData(sheetName, keyField) {
+export function useSheetData(sheetName, keyField, { onError } = {}) {
   // internal state keeps _row on every item for sheet operations
   const internal = useRef([]);
   const headers  = useRef([]);
@@ -95,6 +95,9 @@ export function useSheetData(sheetName, keyField) {
   }, [sheetName]);
 
   // ── Setter ────────────────────────────────────────────────────────────────
+  const onErrorRef = useRef(onError);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+
   const setData = useCallback(async (valueOrUpdater) => {
     // resolve functional updater (e.g. setPrev(prev => [...prev, item]))
     const newClean =
@@ -138,6 +141,7 @@ export function useSheetData(sheetName, keyField) {
           .map(x => x._row > item._row ? { ...x, _row: x._row - 1 } : x);
       } catch (err) {
         console.error(`[useSheetData] delete failed in "${sheetName}":`, err);
+        onErrorRef.current?.(`Delete failed: ${err.message}`);
       }
     }
 
@@ -158,6 +162,7 @@ export function useSheetData(sheetName, keyField) {
           await updateCell(sheetName, item._row, i + 1, cellValue);
         } catch (err) {
           console.error(`[useSheetData] updateCell failed for "${h}" in "${sheetName}":`, err);
+          onErrorRef.current?.(`Failed to save "${h}": ${err.message}`);
         }
       }
     }
@@ -176,6 +181,7 @@ export function useSheetData(sheetName, keyField) {
         );
       } catch (err) {
         console.error(`[useSheetData] insert failed in "${sheetName}":`, err);
+        onErrorRef.current?.(`Insert failed: ${err.message}`);
       }
     }
   }, [sheetName, keyField]); // stable — does not depend on data state
