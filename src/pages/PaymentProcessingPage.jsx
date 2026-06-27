@@ -41,12 +41,8 @@ const formatDate = (isoString) => {
   if (!isoString) return '—';
   try {
     return new Date(isoString).toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', hour12: true,
     });
   } catch {
     return isoString;
@@ -70,14 +66,18 @@ const makeTimestamp = () => {
 };
 
 const fmt = (n) =>
-  n != null && !isNaN(Number(n))
-    ? `₹${Number(n).toLocaleString('en-IN')}`
-    : '—';
+  n != null && !isNaN(Number(n)) ? `₹${Number(n).toLocaleString('en-IN')}` : '—';
 
 const TABS = [
   { key: 'pending', label: 'Pending' },
   { key: 'history', label: 'History' },
 ];
+
+const TH = ({ children }) => (
+  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left px-3">
+    {children}
+  </TableHead>
+);
 
 // ─── Component ───────────────────────────────────────────────────────
 
@@ -85,7 +85,6 @@ export function PaymentProcessingPage() {
   const { toast } = useToast();
 
   const [fmsData] = useSheetData('FMS', 'poNumber');
-  // null keyField → reads all rows without deduplication
   const [paymentHistoryData] = useSheetData('payment history', null);
   const [vendors] = useSheetData('Vendors', 'id');
   const [locationData] = useSheetData('Locations', 'name');
@@ -108,11 +107,16 @@ export function PaymentProcessingPage() {
 
   const qualifies = (row) => hasValue(row.planned7);
 
-  // PO numbers that have at least one entry in the payment history sheet
-  const paidPoNumbers = useMemo(
-    () => new Set(paymentHistoryData.map((r) => String(r['PO Number'] || '').trim())),
-    [paymentHistoryData]
-  );
+  // Total received per PO — used for Received/Balance column in pending tab
+  const receivedByPo = useMemo(() => {
+    const map = {};
+    paymentHistoryData.forEach((r) => {
+      const po = String(r['PO Number'] || '').trim();
+      if (!po) return;
+      map[po] = (map[po] || 0) + Number(r['Received Amount'] || 0);
+    });
+    return map;
+  }, [paymentHistoryData]);
 
   // ── Open payment dialog ───────────────────────────────────────────
   const handleOpenPayment = (item) => {
@@ -120,11 +124,7 @@ export function PaymentProcessingPage() {
     setFormPoNumber(item.poNumber || '');
     setFormLocation(item.location || '');
     setFormAddress(item.address || '');
-    setFormBillingAmount(
-      item.billAmount !== undefined && item.billAmount !== null
-        ? String(item.billAmount)
-        : ''
-    );
+    setFormBillingAmount(item.billAmount != null ? String(item.billAmount) : '');
     setFormPaymentAmount('');
     setPayDialog({ open: true, item });
   };
@@ -139,29 +139,29 @@ export function PaymentProcessingPage() {
       toast('Please enter a valid payment amount.', 'error');
       return;
     }
-
     const billAmt = Number(formBillingAmount || payDialog.item.billAmount || 0);
     if (!billAmt || billAmt <= 0) {
       toast('Please enter a valid billing amount.', 'error');
       return;
     }
-
     const nowTimestamp = makeTimestamp();
 
-    // Instalment number = count of existing rows for this PO + 1
-    const instalmentNo =
-      paymentHistoryData.filter(
-        (r) => String(r['PO Number'] || '').trim() === String(formPoNumber).trim()
-      ).length + 1;
+    const instalmentNo = paymentHistoryData.filter(
+      (r) => String(r['PO Number'] || '').trim() === String(formPoNumber).trim()
+    ).length + 1;
+
+    const paymentNo = `PH-${String(paymentHistoryData.length + 1).padStart(3, '0')}`;
+    const serialNo  = `SN-${String(instalmentNo).padStart(3, '0')}`;
 
     setPayDialog({ open: false, item: null });
     setIsSaving(true);
 
     try {
-      // Columns: Timestamp | Serial No | PO Number | Vendor Name | Bill Amount | Received Amount
+      // Columns: Timestamp | Payment No | Serial No | PO Number | Vendor Name | Bill Amount | Received Amount
       await insertRow('payment history', [
         nowTimestamp,
-        instalmentNo,
+        paymentNo,
+        serialNo,
         formPoNumber,
         formVendor,
         billAmt,
@@ -169,7 +169,7 @@ export function PaymentProcessingPage() {
       ]);
 
       toast(
-        `Payment #${instalmentNo} of ₹${amountToAdd.toLocaleString('en-IN')} recorded for ${formPoNumber}.`,
+        `Payment ${paymentNo} of ₹${amountToAdd.toLocaleString('en-IN')} recorded for ${formPoNumber}.`,
         'success'
       );
     } catch (err) {
@@ -179,36 +179,43 @@ export function PaymentProcessingPage() {
     }
   };
 
-  // ── Filtered list ─────────────────────────────────────────────────
-  const filteredItems = useMemo(() => {
+  // ── Filtered data per tab ─────────────────────────────────────────
+  const pendingItems = useMemo(() => {
     let list = fmsData.filter(qualifies);
-    if (activeTab === 'pending') {
-      list = list.filter((r) => !paidPoNumbers.has(String(r.poNumber)));
-    } else if (activeTab === 'history') {
-      list = list.filter((r) => paidPoNumbers.has(String(r.poNumber)));
-    }
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
-      list = list.filter(
-        (r) =>
-          String(r.poNumber || '').toLowerCase().includes(q) ||
-          String(r.vendorName || '').toLowerCase().includes(q) ||
-          String(r.location || '').toLowerCase().includes(q) ||
-          String(r.updatedBy || '').toLowerCase().includes(q)
+      list = list.filter((r) =>
+        String(r.poNumber || '').toLowerCase().includes(q) ||
+        String(r.vendorName || '').toLowerCase().includes(q) ||
+        String(r.location || '').toLowerCase().includes(q) ||
+        String(r.updatedBy || '').toLowerCase().includes(q)
       );
     }
     return list;
-  }, [fmsData, activeTab, searchTerm, paidPoNumbers]);
+  }, [fmsData, searchTerm]);
 
-  const counts = useMemo(() => {
-    const staged = fmsData.filter(qualifies);
-    return {
-      pending: staged.filter((r) => !paidPoNumbers.has(String(r.poNumber))).length,
-      history: staged.filter((r) => paidPoNumbers.has(String(r.poNumber))).length,
-      totalBillAmount: staged.reduce((s, r) => s + (Number(r.billAmount) || 0), 0),
-      all: staged.length,
-    };
-  }, [fmsData, paidPoNumbers]);
+  const historyItems = useMemo(() => {
+    let list = [...paymentHistoryData].reverse(); // latest first
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      list = list.filter((r) =>
+        String(r['PO Number'] || '').toLowerCase().includes(q) ||
+        String(r['Vendor Name'] || '').toLowerCase().includes(q) ||
+        String(r['Payment No'] || '').toLowerCase().includes(q) ||
+        String(r['Serial NO'] || '').toLowerCase().includes(q) ||
+        String(r['Payment Type'] || '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [paymentHistoryData, searchTerm]);
+
+  const displayCount = activeTab === 'pending' ? pendingItems.length : historyItems.length;
+
+  const counts = useMemo(() => ({
+    pending: fmsData.filter(qualifies).length,
+    history: paymentHistoryData.length,
+    totalBillAmount: fmsData.filter(qualifies).reduce((s, r) => s + (Number(r.billAmount) || 0), 0),
+  }), [fmsData, paymentHistoryData]);
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
@@ -223,7 +230,7 @@ export function PaymentProcessingPage() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-2xl">
         <Card className="border-border bg-card shadow-sm rounded-2xl">
           <CardContent className="py-4 px-5 flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
@@ -232,7 +239,6 @@ export function PaymentProcessingPage() {
             <div className="text-left min-w-0">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Bill</p>
               <p className="text-base font-bold text-foreground truncate">{fmt(counts.totalBillAmount)}</p>
-              <p className="text-[10px] text-muted-foreground">{counts.all} record{counts.all !== 1 ? 's' : ''}</p>
             </div>
           </CardContent>
         </Card>
@@ -243,9 +249,8 @@ export function PaymentProcessingPage() {
               <Clock className="h-5 w-5" />
             </div>
             <div className="text-left min-w-0">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pending</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pending POs</p>
               <p className="text-base font-bold text-amber-700 dark:text-amber-300 truncate">{counts.pending}</p>
-              <p className="text-[10px] text-muted-foreground">awaiting payment</p>
             </div>
           </CardContent>
         </Card>
@@ -256,22 +261,8 @@ export function PaymentProcessingPage() {
               <CheckCircle2 className="h-5 w-5" />
             </div>
             <div className="text-left min-w-0">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Paid</p>
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Payments Logged</p>
               <p className="text-base font-bold text-emerald-700 dark:text-emerald-300 truncate">{counts.history}</p>
-              <p className="text-[10px] text-muted-foreground">payment recorded</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-border bg-card shadow-sm rounded-2xl">
-          <CardContent className="py-4 px-5 flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 shrink-0">
-              <Banknote className="h-5 w-5" />
-            </div>
-            <div className="text-left min-w-0">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Instalments</p>
-              <p className="text-base font-bold text-foreground truncate">{paymentHistoryData.length}</p>
-              <p className="text-[10px] text-muted-foreground">total entries</p>
             </div>
           </CardContent>
         </Card>
@@ -284,14 +275,14 @@ export function PaymentProcessingPage() {
             <div className="relative max-w-sm flex-1">
               <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Search by PO, vendor, location…"
+                placeholder="Search…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9 rounded-xl border-input bg-background h-9 text-xs sm:text-sm max-w-xs"
               />
             </div>
             <div className="text-xs text-muted-foreground hidden md:inline-block">
-              {filteredItems.length} record(s)
+              {displayCount} record(s)
             </div>
           </div>
 
@@ -300,7 +291,7 @@ export function PaymentProcessingPage() {
             {TABS.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => { setActiveTab(tab.key); setSearchTerm(''); }}
                 className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
                   activeTab === tab.key
                     ? 'bg-card text-foreground shadow-sm'
@@ -316,75 +307,89 @@ export function PaymentProcessingPage() {
 
         <CardContent className="p-0">
           <div className="overflow-x-auto w-full">
-            <Table>
-              <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border">
-                <TableRow>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Actions</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-2 py-3 text-left">PO Number</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Bill Amount</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned 7</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Delay 7</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Updated By</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredItems.length > 0 ? (
-                  filteredItems.map((item) => {
-                    const hasPaid = paidPoNumbers.has(String(item.poNumber));
+            {/* ── Pending Tab Table ── */}
+            {activeTab === 'pending' && (
+              <Table>
+                <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border">
+                  <TableRow>
+                    <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Actions</TableHead>
+                    <TH>PO Number</TH>
+                    <TH>Vendor</TH>
+                    <TH>Location</TH>
+                    <TH>Bill Amount</TH>
+                    <TH>Received / Balance</TH>
+                    <TH>Planned 7</TH>
+                    <TH>Delay 7</TH>
+                    <TH>Updated By</TH>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pendingItems.length > 0 ? pendingItems.map((item) => {
+                    const received = receivedByPo[String(item.poNumber)] || 0;
+                    const bill = Number(item.billAmount) || 0;
+                    const balance = bill > 0 ? Math.max(0, bill - received) : null;
                     return (
                       <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
-                        {/* Actions */}
                         <TableCell className="pl-4 md:pl-6 py-4 text-left">
                           <div className="flex items-center gap-1.5">
                             <Button
                               variant="ghost" size="icon"
                               onClick={() => setDetailDialog({ open: true, item })}
                               className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                              title="View details"
                             >
                               <Eye className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               onClick={() => handleOpenPayment(item)}
                               className={`gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm text-white ${
-                                hasPaid
-                                  ? 'bg-blue-600 hover:bg-blue-700'
-                                  : 'bg-emerald-600 hover:bg-emerald-700'
+                                received > 0 ? 'bg-blue-600 hover:bg-blue-700' : 'bg-emerald-600 hover:bg-emerald-700'
                               }`}
                             >
                               <CreditCard className="h-3.5 w-3.5" />
-                              {hasPaid ? 'Add Payment' : 'Receive Payment'}
+                              {received > 0 ? 'Add Payment' : 'Receive Payment'}
                             </Button>
                           </div>
                         </TableCell>
 
-                        <TableCell className="pl-2 py-4 text-left font-semibold text-primary text-xs sm:text-sm">
-                          {item.poNumber}
-                        </TableCell>
+                        <TableCell className="px-3 py-4 font-semibold text-primary text-xs sm:text-sm">{item.poNumber}</TableCell>
+                        <TableCell className="px-3 py-4 text-xs sm:text-sm font-medium text-foreground">{item.vendorName}</TableCell>
 
-                        <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">
-                          {item.vendorName}
-                        </TableCell>
-
-                        <TableCell className="py-4 text-left">
+                        <TableCell className="px-3 py-4">
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
                             <MapPin className="h-2.5 w-2.5 text-muted-foreground" />{item.location}
                           </span>
                         </TableCell>
 
-                        <TableCell className="py-4 text-left text-xs sm:text-sm font-semibold text-foreground">
-                          {item.billAmount ? fmt(Number(item.billAmount)) : '—'}
+                        <TableCell className="px-3 py-4 text-xs sm:text-sm font-semibold text-foreground">
+                          {bill ? fmt(bill) : '—'}
                         </TableCell>
 
-                        <TableCell className="py-4 text-left">
+                        <TableCell className="px-3 py-4 min-w-[160px]">
+                          {bill > 0 ? (
+                            <div className="space-y-1.5">
+                              <div className="w-full bg-neutral-200 dark:bg-neutral-700 rounded-full h-1.5 overflow-hidden">
+                                <div
+                                  className="h-1.5 rounded-full bg-blue-500 transition-all duration-500"
+                                  style={{ width: `${Math.min(100, (received / bill) * 100)}%` }}
+                                />
+                              </div>
+                              <div className="flex justify-between text-[11px]">
+                                <span className="text-blue-600 dark:text-blue-400">Rcvd: {fmt(received)}</span>
+                                <span className="text-rose-600 dark:text-rose-400 font-semibold">Bal: {fmt(balance)}</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">—</span>
+                          )}
+                        </TableCell>
+
+                        <TableCell className="px-3 py-4">
                           <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                            <CalendarClock className="h-3.5 w-3.5 text-muted-foreground" />{formatDate(item.planned7)}
+                            <CalendarClock className="h-3.5 w-3.5 shrink-0" />{formatDate(item.planned7)}
                           </span>
                         </TableCell>
 
-                        <TableCell className="py-4 text-left">
+                        <TableCell className="px-3 py-4">
                           {hasValue(item.actual7) ? (
                             <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay7)}`}>
                               <Timer className="h-3 w-3" />{item.delay7 === 0 ? 'On time' : `${item.delay7} day(s)`}
@@ -394,42 +399,88 @@ export function PaymentProcessingPage() {
                           )}
                         </TableCell>
 
-                        <TableCell className="py-4 text-left">
+                        <TableCell className="px-3 py-4">
                           {item.updatedBy ? (
-                            <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
-                              <User className="h-3.5 w-3.5 text-muted-foreground" />{item.updatedBy}
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <User className="h-3.5 w-3.5 shrink-0" />{item.updatedBy}
                             </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground italic">—</span>
-                          )}
+                          ) : <span className="text-xs text-muted-foreground italic">—</span>}
                         </TableCell>
                       </TableRow>
                     );
-                  })
-                ) : (
+                  }) : (
+                    <TableRow>
+                      <TableCell colSpan={9} className="py-16 text-center">
+                        <EmptyState />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
+
+            {/* ── History Tab Table ── */}
+            {activeTab === 'history' && (
+              <Table>
+                <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border">
                   <TableRow>
-                    <TableCell colSpan={8} className="py-16 text-center">
-                      <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                        <div className="p-3 bg-primary/5 rounded-full">
-                          <CreditCard className="h-8 w-8 text-primary/40" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-sm font-semibold text-foreground/70">No records</p>
-                          <p className="text-xs">No records match your current filters.</p>
-                        </div>
-                      </div>
-                    </TableCell>
+                    <TH>Timestamp</TH>
+                    <TH>Payment No</TH>
+                    <TH>Serial No</TH>
+                    <TH>PO Number</TH>
+                    <TH>Vendor Name</TH>
+                    <TH>Bill Amount</TH>
+                    <TH>Received Amount</TH>
                   </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {historyItems.length > 0 ? historyItems.map((row, idx) => (
+                    <TableRow key={idx} className="hover:bg-accent/40 border-b border-border transition-colors">
+                      <TableCell className="px-3 py-4 text-xs text-muted-foreground whitespace-nowrap">
+                        {row['Timestamp'] || '—'}
+                      </TableCell>
+                      <TableCell className="px-3 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-primary/10 text-primary border border-primary/20">
+                          {row['Payment No'] || '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-3 py-4">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                          {row['Serial NO'] || '—'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-3 py-4 font-semibold text-primary text-xs sm:text-sm">
+                        {row['PO Number'] || '—'}
+                      </TableCell>
+                      <TableCell className="px-3 py-4 text-xs sm:text-sm text-foreground font-medium">
+                        {row['Vendor Name'] || '—'}
+                      </TableCell>
+                      <TableCell className="px-3 py-4 text-xs sm:text-sm font-semibold text-foreground">
+                        {row['Bill Amount'] ? fmt(Number(row['Bill Amount'])) : '—'}
+                      </TableCell>
+                      <TableCell className="px-3 py-4">
+                        <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">
+                          {row['Received Amount'] ? fmt(Number(row['Received Amount'])) : '—'}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  )) : (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-16 text-center">
+                        <EmptyState message="No payment entries yet." />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </div>
         </CardContent>
       </Card>
 
       {/* ── Receive Payment Dialog ────────────────────────────────────────── */}
       <Dialog open={payDialog.open} onOpenChange={(open) => !open && setPayDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[680px] bg-card border-border shadow-xl rounded-2xl p-6">
+        <DialogContent className="sm:max-w-[700px] bg-card border-border shadow-xl rounded-2xl p-6">
           <form onSubmit={handlePaymentSubmit}>
             <DialogHeader className="text-left mb-5">
               <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
@@ -443,7 +494,7 @@ export function PaymentProcessingPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4 py-2">
               {/* Vendor */}
               <div className="space-y-1.5 text-left">
-                <Label className="text-xs font-semibold text-muted-foreground pl-0.5">Vendor*</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">Vendor*</Label>
                 <Select value={formVendor} onValueChange={setFormVendor}>
                   <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-10">
                     <SelectValue placeholder="Select Vendor" />
@@ -460,26 +511,20 @@ export function PaymentProcessingPage() {
 
               {/* PO Number read-only */}
               <div className="space-y-1.5 text-left">
-                <Label className="text-xs font-semibold text-muted-foreground pl-0.5">PO Number</Label>
-                <Input
-                  value={formPoNumber}
-                  readOnly
-                  className="rounded-xl bg-neutral-100 dark:bg-neutral-800 border-input cursor-not-allowed text-xs h-10"
-                />
+                <Label className="text-xs font-semibold text-muted-foreground">PO Number</Label>
+                <Input value={formPoNumber} readOnly className="rounded-xl bg-neutral-100 dark:bg-neutral-800 border-input cursor-not-allowed text-xs h-10" />
               </div>
 
               {/* Location */}
               <div className="space-y-1.5 text-left">
-                <Label className="text-xs font-semibold text-muted-foreground pl-0.5">Location*</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">Location*</Label>
                 <Select value={formLocation} onValueChange={setFormLocation}>
                   <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-10">
                     <SelectValue placeholder="Select Location" />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
                     {locations.map((loc) => (
-                      <SelectItem key={loc} value={loc} className="text-xs focus:bg-accent cursor-pointer">
-                        {loc}
-                      </SelectItem>
+                      <SelectItem key={loc} value={loc} className="text-xs focus:bg-accent cursor-pointer">{loc}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -487,7 +532,7 @@ export function PaymentProcessingPage() {
 
               {/* Address */}
               <div className="space-y-1.5 text-left">
-                <Label className="text-xs font-semibold text-muted-foreground pl-0.5">Address*</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">Address*</Label>
                 <Input
                   value={formAddress}
                   onChange={(e) => setFormAddress(e.target.value)}
@@ -499,7 +544,7 @@ export function PaymentProcessingPage() {
 
               {/* Billing Amount */}
               <div className="space-y-1.5 text-left">
-                <Label className="text-xs font-semibold text-muted-foreground pl-0.5">Billing Amount (INR)*</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">Billing Amount (INR)*</Label>
                 <Input
                   type="number" min="1" step="0.01"
                   value={formBillingAmount}
@@ -512,7 +557,7 @@ export function PaymentProcessingPage() {
 
               {/* Amount received */}
               <div className="space-y-1.5 text-left">
-                <Label className="text-xs font-semibold text-muted-foreground pl-0.5">Amount Received (INR)*</Label>
+                <Label className="text-xs font-semibold text-muted-foreground">Amount Received (INR)*</Label>
                 <Input
                   type="number" min="1" step="0.01"
                   value={formPaymentAmount}
@@ -522,22 +567,15 @@ export function PaymentProcessingPage() {
                   required
                 />
               </div>
+
+
             </div>
 
             <DialogFooter className="mt-6 gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setPayDialog({ open: false, item: null })}
-                className="border-border hover:bg-accent rounded-xl cursor-pointer"
-              >
+              <Button type="button" variant="outline" onClick={() => setPayDialog({ open: false, item: null })} className="border-border hover:bg-accent rounded-xl cursor-pointer">
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={isSaving}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5 disabled:opacity-60"
-              >
+              <Button type="submit" disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5 disabled:opacity-60">
                 <Banknote className="h-4 w-4" />
                 {isSaving ? 'Saving...' : 'Record Payment'}
               </Button>
@@ -553,11 +591,8 @@ export function PaymentProcessingPage() {
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Eye className="h-5 w-5 text-primary" />PO Details
             </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground mt-1">
-              Purchase order information.
-            </DialogDescription>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">Purchase order information.</DialogDescription>
           </DialogHeader>
-
           {detailDialog.item && (
             <div className="space-y-3 py-3">
               {[
@@ -576,18 +611,25 @@ export function PaymentProcessingPage() {
               ))}
             </div>
           )}
-
           <DialogFooter className="mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setDetailDialog({ open: false, item: null })}
-              className="border-border hover:bg-accent rounded-xl cursor-pointer"
-            >
-              Close
-            </Button>
+            <Button variant="outline" onClick={() => setDetailDialog({ open: false, item: null })} className="border-border hover:bg-accent rounded-xl cursor-pointer">Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+function EmptyState({ message = 'No records match your current filters.' }) {
+  return (
+    <div className="flex flex-col items-center gap-3 text-muted-foreground">
+      <div className="p-3 bg-primary/5 rounded-full">
+        <CreditCard className="h-8 w-8 text-primary/40" />
+      </div>
+      <div className="space-y-1">
+        <p className="text-sm font-semibold text-foreground/70">No records</p>
+        <p className="text-xs">{message}</p>
+      </div>
     </div>
   );
 }
