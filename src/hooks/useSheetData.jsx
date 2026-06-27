@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchSheet, insertRow, updateCell, deleteRow } from '@/services/api';
+import { fetchSheet, insertRow, updateCell, updateRow, deleteRow } from '@/services/api';
 
 const isReadOnlyField = (h) =>
   /^planned\d*$/i.test(h) ||
@@ -215,7 +215,8 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
   }, [keyField]);
 
   // ── patchItem: write specific fields directly to sheet ────────────────────
-  // Bypasses the diff mechanism. Throws on any failure so callers can handle it.
+  // Validates that all requested columns exist in the sheet, then writes the
+  // entire row in one atomic updateRow call. Throws on any failure.
   const patchItem = useCallback(async (keyValue, fields) => {
     const internalItem = internal.current.find(
       x => String(x[keyField]) === String(keyValue)
@@ -223,15 +224,30 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
     if (!internalItem?._row) throw new Error('Row not found — try refreshing the page.');
     if (!headers.current.length) throw new Error('Sheet not loaded — try refreshing the page.');
 
-    for (let i = 0; i < headers.current.length; i++) {
-      const h = headers.current[i];
-      if (!(h in fields)) continue;
-      if (isReadOnlyField(h)) continue;
-      const v = fields[h];
-      const cellValue =
-        v == null ? '' : Array.isArray(v) ? JSON.stringify(v) : String(v);
-      await updateCell(sheetName, internalItem._row, i + 1, cellValue);
+    const headerSet = new Set(headers.current);
+
+    // Columns in `fields` that the sheet doesn't have — skip gracefully
+    const unknownCols = Object.keys(fields).filter(
+      k => !isReadOnlyField(k) && !headerSet.has(k)
+    );
+    if (unknownCols.length > 0) {
+      console.warn(`[patchItem] "${sheetName}" sheet has no column(s): ${unknownCols.join(', ')} — skipping`);
     }
+
+    // If NONE of the requested writable fields exist, the write would be a no-op — fail loudly
+    const writableCols = Object.keys(fields).filter(k => !isReadOnlyField(k) && headerSet.has(k));
+    if (writableCols.length === 0) {
+      throw new Error(
+        `Sheet "${sheetName}" is missing all required column(s): ${Object.keys(fields).join(', ')}. ` +
+        `Add these headers to the Google Sheet and refresh the page.`
+      );
+    }
+
+    // Single atomic write — merge existing values with the patched fields
+    // toRow sends '' for unknown/read-only columns so existing sheet values are preserved
+    const mergedItem = { ...internalItem, ...fields };
+    const rowData = toRow(headers.current, mergedItem);
+    await updateRow(sheetName, internalItem._row, rowData);
   }, [sheetName, keyField]);
 
   return [data, setData, loading, refetch, setLocalOnly, patchItem];

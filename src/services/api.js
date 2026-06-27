@@ -65,28 +65,28 @@ export async function fetchSheet(sheetName) {
   return { headers, data };
 }
 
-// ── Write operations via GET (no CORS preflight) ───────────────────────────
+// ── Write operations via POST (avoiding CORS and URL length limits) ─────────
 export const insertRow = (sheetName, rowData) =>
-  getParams({ action: 'insert', sheetName, rowData: JSON.stringify(rowData) });
+  postParams({ action: 'insert', sheetName, rowData: JSON.stringify(rowData) });
 
 // POST-based insert — use when rowData contains large values (e.g. base64 images)
 export const insertRowPost = (sheetName, rowData) =>
   postParams({ action: 'insert', sheetName, rowData: JSON.stringify(rowData) });
 
 export const updateRow = (sheetName, rowIndex, rowData) =>
-  getParams({ action: 'update', sheetName, rowIndex, rowData: JSON.stringify(rowData) });
+  postParams({ action: 'update', sheetName, rowIndex, rowData: JSON.stringify(rowData) });
 
 export const updateCell = (sheetName, rowIndex, columnIndex, value) =>
-  getParams({ action: 'updateCell', sheetName, rowIndex, columnIndex, value });
+  postParams({ action: 'updateCell', sheetName, rowIndex, columnIndex, value });
 
 export const deleteRow = (sheetName, rowIndex) =>
-  getParams({ action: 'delete', sheetName, rowIndex });
+  postParams({ action: 'delete', sheetName, rowIndex });
 
 export const markDeleted = (sheetName, rowIndex, columnIndex, value = 'Yes') =>
-  getParams({ action: 'markDeleted', sheetName, rowIndex, columnIndex, value });
+  postParams({ action: 'markDeleted', sheetName, rowIndex, columnIndex, value });
 
 export const batchInsert = (sheetName, rowsData) =>
-  getParams({ action: 'batchInsert', sheetName, rowsData: JSON.stringify(rowsData) });
+  postParams({ action: 'batchInsert', sheetName, rowsData: JSON.stringify(rowsData) });
 
 // ── File upload stays POST (base64 too large for URL) ─────────────────────
 export const uploadFile = (base64Data, fileName, mimeType, folderId) =>
