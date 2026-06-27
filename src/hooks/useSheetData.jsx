@@ -217,7 +217,7 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
   // ── patchItem: write specific fields directly to sheet ────────────────────
   // Validates that all requested columns exist in the sheet, then writes the
   // entire row in one atomic updateRow call. Throws on any failure.
-  const patchItem = useCallback(async (keyValue, fields) => {
+  const patchItem = useCallback(async (keyValue, fields, { onlySpecified = false } = {}) => {
     const internalItem = internal.current.find(
       x => String(x[keyField]) === String(keyValue)
     );
@@ -243,9 +243,21 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
       );
     }
 
-    // Single atomic write — only write the fields specified in `fields`
-    // toRow sends '' for any field not present in `fields` so they are not overwritten in the sheet
-    const rowData = toRow(headers.current, fields);
+    // Single atomic write — merge existing values with the patched fields
+    // toRow sends '' for unknown/read-only columns so existing sheet values are preserved
+    let rowData;
+    if (onlySpecified) {
+      rowData = headers.current.map(h => {
+        if (isReadOnlyField(h)) return '';
+        if (!(h in fields)) return '';
+        const v = fields[h];
+        if (Array.isArray(v)) return JSON.stringify(v);
+        return v != null ? String(v) : '';
+      });
+    } else {
+      const mergedItem = { ...internalItem, ...fields };
+      rowData = toRow(headers.current, mergedItem);
+    }
     await updateRow(sheetName, internalItem._row, rowData);
   }, [sheetName, keyField]);
 

@@ -215,16 +215,11 @@ export function PaymentProcessingPage() {
     const isNowFullyPaid = newTotalPaid >= billAmt;
 
     const paymentFields = {
-      vendorName: formVendor.trim(),
-      location: formLocation,
-      address: formAddress.trim(),
-      billAmount: billAmt,
-      paymentHistory: JSON.stringify(newHistory),
+      actual7: nowTimestamp,
       totalPaid: newTotalPaid,
       balanceDue: newBalance,
       paymentStatus: isNowFullyPaid ? 'Fully Paid' : 'Partial',
-      updatedBy: userName,
-      ...(isNowFullyPaid && !hasValue(item.actual7) ? { actual7: nowTimestamp } : {}),
+      paymentHistory: JSON.stringify(newHistory),
     };
 
     // Close dialog and show optimistic update immediately
@@ -236,7 +231,7 @@ export function PaymentProcessingPage() {
 
     try {
       // Write directly to sheet — throws on any failure
-      await patchFMS(item.poNumber, paymentFields);
+      await patchFMS(item.poNumber, paymentFields, { onlySpecified: true });
       if (isNowFullyPaid) {
         toast(`Payment for ${formPoNumber} fully completed! ✅`, 'success');
       } else {
