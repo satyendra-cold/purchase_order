@@ -428,39 +428,35 @@ export function CheckTransportPage() {
 
       {/* ── Confirm Transport Verified Dialog ──────────────────────── */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6">
-          <DialogHeader className="text-left mb-2">
-            <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-              <Truck className="h-5 w-5 text-emerald-500" />
+        <DialogContent className="w-[92vw] sm:max-w-[400px] bg-card border-border shadow-xl rounded-2xl p-4 max-h-[88vh] overflow-y-auto">
+          <DialogHeader className="text-left mb-1">
+            <DialogTitle className="text-sm font-bold text-foreground flex items-center gap-2">
+              <Truck className="h-4 w-4 text-emerald-500" />
               Confirm Transport Verified
             </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground mt-1">
-              Fill in transport details. This will stamp Actual 3 (col X) and save transport info to the FMS sheet.
+            <DialogDescription className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
+              Fill in transport details to stamp Actual 3 and save to FMS sheet.
             </DialogDescription>
           </DialogHeader>
 
           {confirmDialog.item && (
-            <div className="space-y-4 py-3">
-              <div className="flex items-center justify-between text-sm">
+            <div className="space-y-3 py-1">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs px-0.5">
                 <span className="text-muted-foreground">PO Number</span>
-                <span className="font-semibold text-primary">{confirmDialog.item.poNumber}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
+                <span className="font-semibold text-primary text-right truncate">{confirmDialog.item.poNumber}</span>
                 <span className="text-muted-foreground">Vendor</span>
-                <span className="font-medium">{confirmDialog.item.vendorName}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-right truncate">{confirmDialog.item.vendorName}</span>
                 <span className="text-muted-foreground">Planned 3</span>
-                <span className="font-medium">{formatDate(confirmDialog.item.planned3)}</span>
+                <span className="font-medium text-right">{formatDate(confirmDialog.item.planned3)}</span>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                  <Truck className="h-3.5 w-3.5" />
+              <div className="space-y-1">
+                <Label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                  <Truck className="h-3 w-3" />
                   Transporter Name*
                 </Label>
                 <Select value={transporterName} onValueChange={setTransporterName}>
-                  <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-10">
+                  <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-9">
                     <SelectValue placeholder="Select a transporter" />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
@@ -473,25 +469,25 @@ export function CheckTransportPage() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground">Quantity*</Label>
+              <div className="space-y-1">
+                <Label className="text-[11px] font-semibold text-muted-foreground">Quantity*</Label>
                 <Input
                   type="number"
                   min="1"
                   value={editQuantity}
                   onChange={(e) => setEditQuantity(e.target.value)}
-                  className="rounded-xl bg-background border-input text-xs h-10"
+                  className="rounded-xl bg-background border-input text-xs h-9"
                   required
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                  <MapPin className="h-3.5 w-3.5" />
+              <div className="space-y-1">
+                <Label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                  <MapPin className="h-3 w-3" />
                   Delivery Location*
                 </Label>
                 <Select value={editLocation} onValueChange={setEditLocation}>
-                  <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-10">
+                  <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-9">
                     <SelectValue placeholder="Select location" />
                   </SelectTrigger>
                   <SelectContent className="bg-card border-border">
@@ -504,43 +500,43 @@ export function CheckTransportPage() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                  <Map className="h-3.5 w-3.5" />
+              <div className="space-y-1">
+                <Label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
+                  <Map className="h-3 w-3" />
                   Delivery Address*
                 </Label>
                 <textarea
                   value={editAddress}
                   onChange={(e) => setEditAddress(e.target.value)}
                   placeholder="Enter delivery address..."
-                  className="w-full min-w-0 rounded-xl border border-input bg-transparent px-3 py-2 text-xs sm:text-sm shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
+                  className="w-full min-w-0 rounded-xl border border-input bg-transparent px-3 py-1.5 text-xs shadow-xs transition-[color,box-shadow] outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-input/30"
                   rows="2"
                   required
                 />
               </div>
 
-              <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5" />
+              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <p className="text-[10px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3 shrink-0" />
                   This will write Actual 3 (col X) and transport details to the FMS sheet.
                 </p>
               </div>
             </div>
           )}
 
-          <DialogFooter className="mt-4 gap-2">
+          <DialogFooter className="mt-3 gap-2 flex-row justify-end">
             <Button
               variant="outline"
               onClick={() => setConfirmDialog({ open: false, item: null })}
-              className="border-border hover:bg-accent rounded-xl cursor-pointer"
+              className="border-border hover:bg-accent rounded-xl cursor-pointer text-xs h-9 px-4"
             >
               Cancel
             </Button>
             <Button
               onClick={() => confirmDialog.item && handleMarkComplete(confirmDialog.item)}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5 text-xs h-9 px-4"
             >
-              <Truck className="h-4 w-4" />
+              <Truck className="h-3.5 w-3.5" />
               Confirm Verified
             </Button>
           </DialogFooter>
