@@ -180,10 +180,6 @@ export function CheckTransportPage() {
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
             Check Transport
           </h1>
-          <p className="text-xs md:text-sm text-muted-foreground mt-1">
-            Verify transport readiness and dispatch logistics. Rows appear here when{' '}
-            <strong>Planned 3</strong> (col W) is set and <strong>Actual 3</strong> (col X) is empty = Pending.
-          </p>
         </div>
       </div>
 
