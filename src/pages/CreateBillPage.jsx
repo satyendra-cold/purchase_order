@@ -450,10 +450,7 @@ export function CreateBillPage() {
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
             Create Bill
           </h1>
-          <p className="text-xs md:text-sm text-muted-foreground mt-1">
-            Process purchase orders by verifying and completing billing.
-            Rows appear here when <strong>Planned 1</strong> (col L) is set and <strong>Actual 1</strong> (col M) is empty = Pending.
-          </p>
+          
         </div>
       </div>
 
