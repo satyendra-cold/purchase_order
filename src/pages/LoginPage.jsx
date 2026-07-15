@@ -52,11 +52,8 @@ export function LoginPage() {
             <Package className="h-6 w-6" />
           </div>
           <h2 className="text-3xl font-semibold tracking-tight text-foreground">
-            Procure<span className="font-light text-muted-foreground">Flow</span>
+            Order to Payment<span className="font-light text-muted-foreground"></span>
           </h2>
-          <p className="text-[10px] text-muted-foreground mt-1.5 tracking-widest uppercase">
-            ENTERPRISE PURCHASING PORTAL
-          </p>
         </div>
 
         {/* Login Card */}
