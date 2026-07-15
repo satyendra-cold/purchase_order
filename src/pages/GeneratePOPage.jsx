@@ -313,7 +313,7 @@ export function GeneratePOPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="text-left">
           <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
-            Generate Purchase Order
+            Generate Order
           </h1>
           <p className="text-xs md:text-sm text-muted-foreground mt-1">
             Audit existing purchase orders, add custom locations, and generate official records.
