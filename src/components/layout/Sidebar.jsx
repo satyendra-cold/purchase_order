@@ -95,7 +95,7 @@ export function Sidebar({ mobileOpen, onClose }) {
           <Package className="h-5 w-5" />
         </div>
         <Link to="/" className="font-semibold tracking-tight text-foreground text-lg">
-          Procure<span className="font-light text-muted-foreground">Flow</span>
+          Order To Payment<span className="font-light text-muted-foreground"></span>
         </Link>
       </div>
 
@@ -163,7 +163,7 @@ export function Sidebar({ mobileOpen, onClose }) {
               <Package className="h-5 w-5" />
             </div>
             <Link to="/" className="font-semibold tracking-tight text-foreground text-lg">
-              Procure<span className="font-light text-muted-foreground">Flow</span>
+              Order To Payment<span className="font-light text-muted-foreground"></span>
             </Link>
           </div>
           <button
