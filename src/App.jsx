@@ -33,8 +33,8 @@ function AppLayout() {
         <Header onToggleSidebar={() => setMobileSidebarOpen(prev => !prev)} />
         
         {/* Scrollable Page Outlet */}
-        <main className="flex-grow overflow-y-auto bg-neutral-50/20 dark:bg-neutral-950/5 flex flex-col justify-between min-h-0">
-          <div className="max-w-7xl mx-auto w-full px-4 py-6 md:px-8 md:py-8 flex-grow">
+        <main className="grow overflow-y-auto bg-neutral-50/20 dark:bg-neutral-950/5 flex flex-col justify-between min-h-0">
+          <div className="max-w-7xl mx-auto w-full px-4 py-6 md:px-8 md:py-8 grow">
             <Outlet />
           </div>
           <Footer />

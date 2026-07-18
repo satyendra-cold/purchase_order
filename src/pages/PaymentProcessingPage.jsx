@@ -25,7 +25,6 @@ import {
 import {
   Search,
   User,
-  Timer,
   CreditCard,
   MapPin,
   CalendarClock,
@@ -47,14 +46,6 @@ const formatDate = (isoString) => {
   } catch {
     return isoString;
   }
-};
-
-const delayBadgeClass = (days) => {
-  if (days === 0)
-    return 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-  if (days <= 3)
-    return 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800';
-  return 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800';
 };
 
 const hasValue = (val) => val != null && String(val).trim() !== '';
@@ -319,8 +310,7 @@ export function PaymentProcessingPage() {
                     <TH>Location</TH>
                     <TH>Bill Amount</TH>
                     <TH>Received / Balance</TH>
-                    <TH>Planned 7</TH>
-                    <TH>Delay 7</TH>
+                    <TH>Planned</TH>
                     <TH>Updated By</TH>
                   </TableRow>
                 </TableHeader>
@@ -391,16 +381,6 @@ export function PaymentProcessingPage() {
                         </TableCell>
 
                         <TableCell className="px-3 py-4">
-                          {hasValue(item.actual7) ? (
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay7)}`}>
-                              <Timer className="h-3 w-3" />{item.delay7 === 0 ? 'On time' : `${item.delay7} day(s)`}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground italic">—</span>
-                          )}
-                        </TableCell>
-
-                        <TableCell className="px-3 py-4">
                           {item.updatedBy ? (
                             <span className="text-xs text-muted-foreground flex items-center gap-1">
                               <User className="h-3.5 w-3.5 shrink-0" />{item.updatedBy}
@@ -411,7 +391,7 @@ export function PaymentProcessingPage() {
                     );
                   }) : (
                     <TableRow>
-                      <TableCell colSpan={9} className="py-16 text-center">
+                      <TableCell colSpan={8} className="py-16 text-center">
                         <EmptyState />
                       </TableCell>
                     </TableRow>

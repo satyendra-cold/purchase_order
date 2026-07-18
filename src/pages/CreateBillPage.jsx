@@ -22,10 +22,8 @@ import {
   User,
   CheckCircle2,
   AlertCircle,
-  Timer,
   Receipt,
   MapPin,
-  CalendarCheck2,
   Eye,
   FileDown,
   FilePlus2,
@@ -92,15 +90,6 @@ const calcDelayDays = (plannedISO, actualISO) => {
   const actual = new Date(actualISO);
   const diffMs = actual.getTime() - planned.getTime();
   return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-};
-
-/** Delay badge colour */
-const delayBadgeClass = (days) => {
-  if (days === 0)
-    return 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-  if (days <= 3)
-    return 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800';
-  return 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800';
 };
 
 // ─── Status tabs ────────────────────────────────────────────────────
@@ -551,7 +540,7 @@ export function CreateBillPage() {
                     Location
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Planned 1 (L)
+                    Planned
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Bill Number
@@ -563,13 +552,7 @@ export function CreateBillPage() {
                     Bill Date
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Actual 1 (M)
-                  </TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Status
-                  </TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Delay
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Bill PDF
@@ -579,7 +562,7 @@ export function CreateBillPage() {
               <TableBody>
                 {fmsLoading ? (
                   <TableRow>
-                    <TableCell colSpan={12} className="py-16 text-center text-muted-foreground text-sm">
+                    <TableCell colSpan={10} className="py-16 text-center text-muted-foreground text-sm">
                       Loading…
                     </TableCell>
                   </TableRow>
@@ -587,7 +570,6 @@ export function CreateBillPage() {
                   filteredRows.map((row) => {
                     const pending = isPending(row);
                     const completed = isCompleted(row);
-                    const delay = row.delay1 || 0;
 
                     return (
                       <TableRow
@@ -683,18 +665,6 @@ export function CreateBillPage() {
                           {row.billDate || '-'}
                         </TableCell>
 
-                        {/* Actual 1 (Col M) */}
-                        <TableCell className="py-4 text-left">
-                          {completed ? (
-                            <span className="text-xs sm:text-sm text-foreground flex items-center gap-1">
-                              <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />
-                              {formatDate(row.actual1)}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground italic">Not yet</span>
-                          )}
-                        </TableCell>
-
                         {/* Status Badge */}
                         <TableCell className="py-4 text-left">
                           {completed ? (
@@ -707,20 +677,6 @@ export function CreateBillPage() {
                               <Clock className="h-3 w-3" />
                               Pending
                             </span>
-                          )}
-                        </TableCell>
-
-                        {/* Delay */}
-                        <TableCell className="py-4 text-left">
-                          {completed ? (
-                            <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(delay)}`}
-                            >
-                              <Timer className="h-3 w-3" />
-                              {delay === 0 ? 'On time' : `${delay} day${delay > 1 ? 's' : ''}`}
-                            </span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground italic">—</span>
                           )}
                         </TableCell>
 
@@ -752,7 +708,7 @@ export function CreateBillPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={12} className="py-16 text-center">
+                    <TableCell colSpan={10} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-primary/5 rounded-full">
                           <Receipt className="h-8 w-8 text-primary/40" />

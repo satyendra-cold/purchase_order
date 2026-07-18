@@ -1,12 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/useLocalStorage';
 import { useSheetData } from '@/hooks/useSheetData';
+import { useToast } from '@/hooks/useToast';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
+  const { toast } = useToast();
+
   // Users live in Google Sheets
-  const [users, setUsers] = useSheetData('Login', 'id');
+  const [users, setUsers] = useSheetData('Login', 'id', {
+    onError: (msg) => toast(msg, 'error'),
+  });
 
   // Session persists in localStorage only
   const [currentUser, setCurrentUser] = useLocalStorage('procureflow_current_user', null);
@@ -90,7 +95,7 @@ export function AuthProvider({ children }) {
   };
 
   const updateUser = (updatedUser) => {
-    setUsers(users.map(u => u.id === updatedUser.id ? updatedUser : u));
+    setUsers(users.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u));
     return true;
   };
 

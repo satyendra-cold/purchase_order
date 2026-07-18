@@ -20,11 +20,9 @@ import {
   User,
   CheckCircle2,
   AlertCircle,
-  Timer,
   ClipboardCheck,
   MapPin,
   CalendarClock,
-  CalendarCheck2,
   Eye,
 } from 'lucide-react';
 
@@ -54,13 +52,6 @@ const calcDelayDays = (plannedISO, actualISO) => {
   return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
 };
 
-const delayBadgeClass = (days) => {
-  if (days === 0)
-    return 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-  if (days <= 3)
-    return 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800';
-  return 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800';
-};
 
 const hasValue = (val) => val != null && String(val).trim() !== '';
 
@@ -242,10 +233,8 @@ export function SupplyCheckPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned 5 (AH)</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Actual 5 (AI)</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Status</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Delay 5 (AJ)</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Updated By</TableHead>
                 </TableRow>
               </TableHeader>
@@ -279,15 +268,6 @@ export function SupplyCheckPage() {
                       </TableCell>
                       <TableCell className="py-4 text-left">
                         {hasValue(item.actual5) ? (
-                          <span className="text-xs sm:text-sm text-foreground flex items-center gap-1">
-                            <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />{formatDate(item.actual5)}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">Not yet</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-4 text-left">
-                        {hasValue(item.actual5) ? (
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
                             <CheckCircle2 className="h-3 w-3" />Checked
                           </span>
@@ -295,15 +275,6 @@ export function SupplyCheckPage() {
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                             <Clock className="h-3 w-3" />Pending
                           </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="py-4 text-left">
-                        {hasValue(item.actual5) ? (
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay5)}`}>
-                            <Timer className="h-3 w-3" />{item.delay5 === 0 ? 'On time' : `${item.delay5} day(s)`}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">—</span>
                         )}
                       </TableCell>
                       <TableCell className="py-4 text-left">
@@ -319,7 +290,7 @@ export function SupplyCheckPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-16 text-center">
+                    <TableCell colSpan={7} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-primary/5 rounded-full"><ClipboardCheck className="h-8 w-8 text-primary/40" /></div>
                         <div className="space-y-1">

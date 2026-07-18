@@ -28,12 +28,10 @@ import {
   User,
   CheckCircle2,
   AlertCircle,
-  Timer,
   Truck,
   MapPin,
   Map,
   CalendarClock,
-  CalendarCheck2,
   Eye,
 } from 'lucide-react';
 
@@ -55,14 +53,6 @@ const formatDate = (isoString) => {
   } catch {
     return isoString;
   }
-};
-
-const delayBadgeClass = (days) => {
-  if (days === 0)
-    return 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800';
-  if (days <= 3)
-    return 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800';
-  return 'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800';
 };
 
 /** true if val is not null / not empty string */
@@ -270,10 +260,8 @@ export function CheckTransportPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Transporter</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned 3 (W)</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Actual 3 (X)</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Status</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Delay 3 (Y)</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Updated By</TableHead>
                 </TableRow>
               </TableHeader>
@@ -347,18 +335,6 @@ export function CheckTransportPage() {
                         </span>
                       </TableCell>
 
-                      {/* Actual 3 (col X) */}
-                      <TableCell className="py-4 text-left">
-                        {hasValue(item.actual3) ? (
-                          <span className="text-xs sm:text-sm text-foreground flex items-center gap-1">
-                            <CalendarCheck2 className="h-3.5 w-3.5 text-emerald-500" />
-                            {formatDate(item.actual3)}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">Not yet</span>
-                        )}
-                      </TableCell>
-
                       {/* Status */}
                       <TableCell className="py-4 text-left">
                         {hasValue(item.actual3) ? (
@@ -369,18 +345,6 @@ export function CheckTransportPage() {
                           <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                             <Clock className="h-3 w-3" />Pending
                           </span>
-                        )}
-                      </TableCell>
-
-                      {/* Delay 3 (col Y) */}
-                      <TableCell className="py-4 text-left">
-                        {hasValue(item.actual3) ? (
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${delayBadgeClass(item.delay3 || 0)}`}>
-                            <Timer className="h-3 w-3" />
-                            {(item.delay3 || 0) === 0 ? 'On time' : `${item.delay3} day${item.delay3 > 1 ? 's' : ''}`}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">—</span>
                         )}
                       </TableCell>
 
@@ -399,7 +363,7 @@ export function CheckTransportPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-16 text-center">
+                    <TableCell colSpan={8} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-primary/5 rounded-full">
                           <Truck className="h-8 w-8 text-primary/40" />

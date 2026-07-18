@@ -67,7 +67,7 @@ const PAGE_ICON_MAP = {
 };
 
 export function SettingsPage() {
-  const { users, currentUser, addUser, updateUser } = useAuth();
+  const { users, currentUser, addUser, updateUser, deleteUser } = useAuth();
   const { toast } = useToast();
 
   // Tab State: 'staff', 'vendors', or 'transporters'
@@ -119,7 +119,7 @@ export function SettingsPage() {
     setFormUsername(user.username);
     setFormPassword(user.password || '');
     setFormEmail(user.email);
-    setFormPhone(user.phone || '');
+    setFormPhone(user.phone != null ? String(user.phone) : '');
     setFormRole(user.role);
     setFormStatus(user.status);
     setFormPageAccess(user.pageAccess || []);
@@ -159,7 +159,7 @@ export function SettingsPage() {
 
     if (formPhone) {
       const phoneRegex = /^(?:\+91|91|0)?[6-9]\d{9}$/;
-      if (!phoneRegex.test(formPhone.replace(/\s+/g, ''))) {
+      if (!phoneRegex.test(String(formPhone).replace(/\s+/g, ''))) {
         setErrorMsg('Please enter a valid 10-digit Indian phone number.');
         return;
       }
@@ -187,7 +187,7 @@ export function SettingsPage() {
     setIsOpen(false);
   };
 
-  const filteredUsers = users.filter(user => 
+  const filteredUsers = users.filter(user =>
     user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -219,7 +219,7 @@ export function SettingsPage() {
     setIsEditingVendor(true);
     setVendorId(vendor.id);
     setVendorName(vendor.name);
-    setVendorPhone(vendor.phone || '');
+    setVendorPhone(vendor.phone != null ? String(vendor.phone) : '');
     setVendorErrorMsg('');
     setIsVendorModalOpen(true);
   };
@@ -233,9 +233,9 @@ export function SettingsPage() {
       return;
     }
 
-    if (vendorPhone.trim()) {
+    if (String(vendorPhone).trim()) {
       const phoneRegex = /^(?:\+91|91|0)?[6-9]\d{9}$/;
-      if (!phoneRegex.test(vendorPhone.replace(/\s+/g, ''))) {
+      if (!phoneRegex.test(String(vendorPhone).replace(/\s+/g, ''))) {
         setVendorErrorMsg('Please enter a valid 10-digit Indian phone number.');
         return;
       }
@@ -252,7 +252,7 @@ export function SettingsPage() {
     const vendorData = {
       id: vendorId || Date.now().toString(),
       name: vendorName.trim(),
-      phone: vendorPhone.trim()
+      phone: String(vendorPhone).trim()
     };
 
     if (isEditingVendor) {
@@ -266,16 +266,7 @@ export function SettingsPage() {
     setIsVendorModalOpen(false);
   };
 
-  const handleDeleteVendor = (id) => {
-    const targetVendor = vendors.find(v => v.id === id);
-    const name = targetVendor ? targetVendor.name : id;
-    if (window.confirm(`Are you sure you want to delete vendor "${name}"?`)) {
-      setVendors(vendors.filter(v => v.id !== id));
-      toast(`Vendor "${name}" deleted successfully.`, 'success');
-    }
-  };
-
-  const filteredVendors = vendors.filter(v => 
+  const filteredVendors = vendors.filter(v =>
     v.name.toLowerCase().includes(vendorSearchTerm.toLowerCase()) ||
     v.phone.toLowerCase().includes(vendorSearchTerm.toLowerCase())
   );
@@ -305,7 +296,7 @@ export function SettingsPage() {
     setIsEditingTransporter(true);
     setTransporterId(transporter.id);
     setTransporterName(transporter.name);
-    setTransporterPhone(transporter.phone || '');
+    setTransporterPhone(transporter.phone != null ? String(transporter.phone) : '');
     setTransporterErrorMsg('');
     setIsTransporterModalOpen(true);
   };
@@ -319,9 +310,9 @@ export function SettingsPage() {
       return;
     }
 
-    if (transporterPhone.trim()) {
+    if (String(transporterPhone).trim()) {
       const phoneRegex = /^(?:\+91|91|0)?[6-9]\d{9}$/;
-      if (!phoneRegex.test(transporterPhone.replace(/\s+/g, ''))) {
+      if (!phoneRegex.test(String(transporterPhone).replace(/\s+/g, ''))) {
         setTransporterErrorMsg('Please enter a valid 10-digit Indian phone number.');
         return;
       }
@@ -338,7 +329,7 @@ export function SettingsPage() {
     const transporterData = {
       id: transporterId || Date.now().toString(),
       name: transporterName.trim(),
-      phone: transporterPhone.trim()
+      phone: String(transporterPhone).trim()
     };
 
     if (isEditingTransporter) {
@@ -352,13 +343,36 @@ export function SettingsPage() {
     setIsTransporterModalOpen(false);
   };
 
-  const handleDeleteTransporter = (id) => {
-    const target = transporters.find(t => t.id === id);
-    const name = target ? target.name : id;
-    if (window.confirm(`Are you sure you want to delete transporter "${name}"?`)) {
-      setTransporters(transporters.filter(t => t.id !== id));
-      toast(`Transporter "${name}" deleted successfully.`, 'success');
+  // ----------------------------------------------------
+  // DELETE CONFIRMATION (shared across staff / vendors / transporters)
+  // ----------------------------------------------------
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, type: null, item: null });
+
+  const requestDeleteUser = (user) => setDeleteConfirm({ open: true, type: 'staff', item: user });
+  const requestDeleteVendor = (vendor) => setDeleteConfirm({ open: true, type: 'vendor', item: vendor });
+  const requestDeleteTransporter = (transporter) => setDeleteConfirm({ open: true, type: 'transporter', item: transporter });
+  const closeDeleteConfirm = () => setDeleteConfirm({ open: false, type: null, item: null });
+
+  const handleConfirmDelete = () => {
+    const { type, item } = deleteConfirm;
+    if (!item) return;
+
+    if (type === 'staff') {
+      const result = deleteUser(item.id);
+      if (result.success) {
+        toast(`Staff member "${item.name}" deleted successfully.`, 'success');
+      } else {
+        toast(result.message, 'error');
+      }
+    } else if (type === 'vendor') {
+      setVendors(vendors.filter(v => v.id !== item.id));
+      toast(`Vendor "${item.name}" deleted successfully.`, 'success');
+    } else if (type === 'transporter') {
+      setTransporters(transporters.filter(t => t.id !== item.id));
+      toast(`Transporter "${item.name}" deleted successfully.`, 'success');
     }
+
+    closeDeleteConfirm();
   };
 
   const filteredTransporters = transporters.filter(t =>
@@ -521,14 +535,24 @@ export function SettingsPage() {
 
                         <TableCell className="py-4 text-right pr-4 md:pr-6">
                           <div className="flex items-center justify-end gap-1.5 font-normal">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => handleOpenEditModal(user)}
                               className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
                               title="Edit User"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => requestDeleteUser(user)}
+                              disabled={currentUser?.id === user.id}
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+                              title={currentUser?.id === user.id ? "You cannot delete yourself" : "Delete User"}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </TableCell>
@@ -604,14 +628,23 @@ export function SettingsPage() {
                          {/* Actions */}
                         <TableCell className="py-4 text-right pr-4 md:pr-6">
                           <div className="flex items-center justify-end gap-1.5 font-normal">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => handleOpenEditVendorModal(vendor)}
                               className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
                               title="Edit Vendor"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => requestDeleteVendor(vendor)}
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                              title="Delete Vendor"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </TableCell>
@@ -699,7 +732,7 @@ export function SettingsPage() {
                             <Button 
                               variant="ghost" 
                               size="icon" 
-                              onClick={() => handleDeleteTransporter(transporter.id)}
+                              onClick={() => requestDeleteTransporter(transporter)}
                               className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
                               title="Delete Transporter"
                             >
@@ -1080,6 +1113,50 @@ export function SettingsPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* DELETE CONFIRMATION DIALOG (shared) */}
+      <Dialog open={deleteConfirm.open} onOpenChange={(open) => !open && closeDeleteConfirm()}>
+        <DialogContent className="sm:max-w-[420px] bg-card border-border shadow-xl rounded-2xl p-6">
+          <DialogHeader className="text-left mb-2">
+            <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2.5">
+              <div className="p-2 rounded-full bg-destructive/10 text-destructive shrink-0">
+                <AlertCircle className="h-4.5 w-4.5" />
+              </div>
+              Are you sure?
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {deleteConfirm.item && (
+            <div className="py-2 text-sm text-foreground">
+              This will permanently delete{' '}
+              {deleteConfirm.type === 'staff' && 'staff member'}
+              {deleteConfirm.type === 'vendor' && 'vendor'}
+              {deleteConfirm.type === 'transporter' && 'transporter'}
+              {' '}
+              <span className="font-semibold">"{deleteConfirm.item.name}"</span>.
+            </div>
+          )}
+          <DialogFooter className="mt-4 gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeDeleteConfirm}
+              className="border-border hover:bg-accent rounded-xl cursor-pointer"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDelete}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl cursor-pointer gap-1.5"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
