@@ -24,7 +24,9 @@ import {
   MapPin,
   CalendarClock,
   Eye,
+  XCircle,
 } from 'lucide-react';
+import { CancelOrderDialog } from '@/components/shared/CancelOrderDialog';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -79,6 +81,7 @@ export function ApproveProductPage() {
   const [activeTab, setActiveTab] = useState('pending');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
+  const [cancelDialog, setCancelDialog] = useState({ open: false, item: null });
 
   // ── Pending   = planned6 (col AK) NOT null  AND  actual6 (col AL) IS empty
   // ── Completed = planned6 (col AK) NOT null  AND  actual6 (col AL) NOT empty
@@ -106,10 +109,12 @@ export function ApproveProductPage() {
     setConfirmDialog({ open: false, item: null });
   };
 
+  const isDeleted = (r) => String(r['Delete Status'] || r.deleteStatus || '').trim().toLowerCase() === 'deleted';
+
   // ── Filtered & searched list ───────────────────────────────────────
   const filteredItems = useMemo(() => {
-    // Only show items where planned6 (col AK) has a value
-    let list = fmsData.filter((r) => hasValue(r.planned6));
+    // Only show items where planned6 (col AK) has a value and are not deleted
+    let list = fmsData.filter((r) => hasValue(r.planned6) && !isDeleted(r));
 
     if (activeTab === 'pending') list = list.filter(isPending);
     else if (activeTab === 'history') list = list.filter(isCompleted);
@@ -128,7 +133,7 @@ export function ApproveProductPage() {
   }, [fmsData, activeTab, searchTerm]);
 
   const counts = useMemo(() => {
-    const staged = fmsData.filter((r) => hasValue(r.planned6));
+    const staged = fmsData.filter((r) => hasValue(r.planned6) && !isDeleted(r));
     const pendingCount = staged.filter(isPending).length;
     const historyCount = staged.filter(isCompleted).length;
     return {
@@ -243,13 +248,21 @@ export function ApproveProductPage() {
                     <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
                       <TableCell className="pl-4 md:pl-6 py-4 text-left">
                         <div className="flex items-center gap-1.5">
-                          <Button variant="ghost" size="icon" onClick={() => setDetailDialog({ open: true, item })} className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer" title="View details">
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
                           {!hasValue(item.actual6) && (
-                            <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
-                              <CheckSquare className="h-3.5 w-3.5" />Approve
-                            </Button>
+                            <>
+                              <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
+                                <CheckSquare className="h-3.5 w-3.5" />Approve
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => setCancelDialog({ open: true, item })}
+                                className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/30 gap-1 text-[11px] rounded-xl px-2.5 h-8 cursor-pointer"
+                                title="Cancel PO"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                                Cancel
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>
@@ -388,6 +401,15 @@ export function ApproveProductPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Order Dialog */}
+      <CancelOrderDialog
+        open={cancelDialog.open}
+        onClose={() => setCancelDialog({ open: false, item: null })}
+        item={cancelDialog.item}
+        stageName="Approve Product"
+      />
+
     </div>
   );
 }

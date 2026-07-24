@@ -16,6 +16,8 @@ import { PrintInvoicePage } from '@/pages/PrintInvoicePage';
 import { SupplyCheckPage } from '@/pages/SupplyCheckPage';
 import { ApproveProductPage } from '@/pages/ApproveProductPage';
 import { PaymentProcessingPage } from '@/pages/PaymentProcessingPage';
+import { CancelledOrdersPage } from '@/pages/CancelledOrdersPage';
+import { DeletedPOsPage } from '@/pages/DeletedPOsPage';
 import { ToastProvider } from '@/hooks/useToast';
 
 // Layout wrapper component that builds the Sidebar + Header + Footer scaffolding
@@ -164,6 +166,26 @@ export default function App() {
                 element={
                   <ProtectedRoute requiredPermission="Payment Processing">
                     <PaymentProcessingPage />
+                  </ProtectedRoute>
+                } 
+              />
+
+              {/* Canceled Orders Route */}
+              <Route 
+                path="canceled-orders" 
+                element={
+                  <ProtectedRoute requiredPermission="Canceled Orders">
+                    <CancelledOrdersPage />
+                  </ProtectedRoute>
+                } 
+              />
+
+              {/* Deleted POs Route */}
+              <Route 
+                path="deleted-pos" 
+                element={
+                  <ProtectedRoute requiredPermission="Deleted POs">
+                    <DeletedPOsPage />
                   </ProtectedRoute>
                 } 
               />

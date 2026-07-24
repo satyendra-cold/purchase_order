@@ -15,6 +15,8 @@ import {
   ClipboardCheck,
   CheckSquare,
   CreditCard,
+  XCircle,
+  Trash2,
   X
 } from 'lucide-react';
 
@@ -75,6 +77,18 @@ export function Sidebar({ mobileOpen, onClose }) {
       path: '/payment-processing',
       icon: CreditCard,
       permission: 'Payment Processing'
+    },
+    {
+      label: 'Canceled Orders',
+      path: '/canceled-orders',
+      icon: XCircle,
+      permission: 'Canceled Orders'
+    },
+    {
+      label: 'Deleted POs',
+      path: '/deleted-pos',
+      icon: Trash2,
+      permission: 'Deleted POs'
     },
     {
       label: 'Settings',

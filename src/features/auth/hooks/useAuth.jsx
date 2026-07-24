@@ -5,6 +5,12 @@ import { useToast } from '@/hooks/useToast';
 
 const AuthContext = createContext(null);
 
+function sanitizeUser(user) {
+  if (!user) return null;
+  const { password, ...safeUser } = user;
+  return safeUser;
+}
+
 export function AuthProvider({ children }) {
   const { toast } = useToast();
 
@@ -18,12 +24,22 @@ export function AuthProvider({ children }) {
 
   const [authError, setAuthError] = useState('');
 
+  // Sanitize initial session if legacy password field exists in localStorage
+  useEffect(() => {
+    if (currentUser && 'password' in currentUser) {
+      setCurrentUser(sanitizeUser(currentUser));
+    }
+  }, [currentUser, setCurrentUser]);
+
   // Keep the currentUser session data fresh if the admin edits their user details in Settings
   useEffect(() => {
     if (currentUser && Array.isArray(users) && users.length > 0) {
       const freshUserData = users.find(u => u.id === currentUser.id);
-      if (freshUserData && JSON.stringify(freshUserData) !== JSON.stringify(currentUser)) {
-        setCurrentUser(freshUserData);
+      if (freshUserData) {
+        const safeFresh = sanitizeUser(freshUserData);
+        if (JSON.stringify(safeFresh) !== JSON.stringify(currentUser)) {
+          setCurrentUser(safeFresh);
+        }
       }
     }
   }, [users, currentUser, setCurrentUser]);
@@ -38,30 +54,36 @@ export function AuthProvider({ children }) {
     pageAccess: [
       'Dashboard', 'Settings', 'Generate PO', 'Create Bill',
       'Ready Product', 'Check Transport', 'Print Invoice',
-      'Supply Check', 'Approve Product', 'Payment Processing'
+      'Supply Check', 'Approve Product', 'Payment Processing',
+      'Canceled Orders', 'Deleted POs'
     ],
   };
 
   const login = (username, password) => {
     setAuthError('');
 
+    const cleanUsername = String(username ?? '').trim();
+    const cleanPassword = String(password ?? '').trim();
+
     // Check DEFAULT_ADMIN first — always works regardless of sheet contents
     if (
-      username.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase() &&
-      password === DEFAULT_ADMIN.password
+      cleanUsername.toLowerCase() === DEFAULT_ADMIN.username.toLowerCase() &&
+      cleanPassword === DEFAULT_ADMIN.password
     ) {
       // Only use DEFAULT_ADMIN if sheet has no active user with same credentials
       const sheetMatch = Array.isArray(users) && users.find(
-        u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
+        u => String(u.username ?? '').trim().toLowerCase() === cleanUsername.toLowerCase() &&
+             String(u.password ?? '').trim() === cleanPassword
       );
       if (!sheetMatch || sheetMatch.status !== 'Active') {
-        setCurrentUser(DEFAULT_ADMIN);
+        setCurrentUser(sanitizeUser(DEFAULT_ADMIN));
         return true;
       }
     }
 
     const user = Array.isArray(users) && users.find(
-      u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
+      u => String(u.username ?? '').trim().toLowerCase() === cleanUsername.toLowerCase() &&
+           String(u.password ?? '').trim() === cleanPassword
     );
 
     if (user) {
@@ -69,7 +91,7 @@ export function AuthProvider({ children }) {
         setAuthError('Your account has been deactivated. Please contact an administrator.');
         return false;
       }
-      setCurrentUser(user);
+      setCurrentUser(sanitizeUser(user));
       return true;
     } else {
       setAuthError('Invalid username or password.');
@@ -96,6 +118,9 @@ export function AuthProvider({ children }) {
 
   const updateUser = (updatedUser) => {
     setUsers(users.map(u => u.id === updatedUser.id ? { ...u, ...updatedUser } : u));
+    if (currentUser && currentUser.id === updatedUser.id) {
+      setCurrentUser(sanitizeUser(updatedUser));
+    }
     return true;
   };
 

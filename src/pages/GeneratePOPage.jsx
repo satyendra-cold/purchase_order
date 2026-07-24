@@ -44,7 +44,7 @@ export function GeneratePOPage() {
   const { toast } = useToast();
 
   // Sheet-backed lists
-  const [purchaseOrders, setPurchaseOrders, , refetchPOs] = useSheetData('FMS', 'poNumber');
+  const [purchaseOrders, setPurchaseOrders, , refetchPOs, , patchItem] = useSheetData('FMS', 'poNumber');
   const [locationData, setLocationData] = useSheetData('Locations', 'name');
   const [vendors] = useSheetData('Vendors', 'id');
   const locationNames = locationData.map(l => l.name);
@@ -58,7 +58,7 @@ export function GeneratePOPage() {
   const [editingOriginalPoNumber, setEditingOriginalPoNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
-  const [deleteTarget, setDeleteTarget] = useState(null); // poNumber to delete
+  const [deleteTarget, setDeleteTarget] = useState(null); // PO item object to delete
 
   // Form Fields
   const [poNumber, setPoNumber] = useState('');
@@ -263,12 +263,29 @@ export function GeneratePOPage() {
     }
   };
 
-  // Delete PO Record
-  const confirmDelete = () => {
+  // Delete PO Record (Soft Delete by Serial No in Column AT)
+  const confirmDelete = async () => {
     if (!deleteTarget) return;
-    setPurchaseOrders(purchaseOrders.filter(po => po.poNumber !== deleteTarget));
-    toast(`Purchase Order ${deleteTarget} deleted successfully.`, 'success');
+    const targetItem = deleteTarget;
     setDeleteTarget(null);
+
+    const serialNoKey = targetItem['Serial No'] || targetItem.serialNo || targetItem.poNumber;
+    try {
+      await patchItem(serialNoKey, { 'Delete Status': 'Deleted' });
+      // Optimistically update state locally so item is marked Deleted
+      setPurchaseOrders(prev =>
+        prev.map(po => {
+          const match = (po['Serial No'] && po['Serial No'] === serialNoKey) ||
+                        (po.serialNo && po.serialNo === serialNoKey) ||
+                        (po.poNumber === targetItem.poNumber);
+          return match ? { ...po, 'Delete Status': 'Deleted' } : po;
+        })
+      );
+      toast(`Purchase Order ${targetItem.poNumber} moved to Deleted POs.`, 'success');
+    } catch (err) {
+      toast(`Failed to delete PO: ${err.message}`, 'error');
+      console.error('[GeneratePO] soft delete failed:', err);
+    }
   };
 
   // Copy PO details to clipboard
@@ -294,17 +311,26 @@ export function GeneratePOPage() {
     }
   };
 
-  // Filter purchase orders
+  // Filter out soft-deleted POs
+  const activePOs = useMemo(() => {
+    return purchaseOrders.filter(po => {
+      const status = String(po['Delete Status'] || po.deleteStatus || '').trim().toLowerCase();
+      return status !== 'deleted';
+    });
+  }, [purchaseOrders]);
+
+  // Filter active purchase orders by search term
   const filteredPOs = useMemo(() => {
-    if (!searchTerm.trim()) return purchaseOrders;
+    if (!searchTerm.trim()) return activePOs;
     const q = searchTerm.toLowerCase();
-    return purchaseOrders.filter(po =>
+    return activePOs.filter(po =>
+      String(po['Serial No'] || po.serialNo || '').toLowerCase().includes(q) ||
       String(po.poNumber   || '').toLowerCase().includes(q) ||
       String(po.vendorName || '').toLowerCase().includes(q) ||
       String(po.location   || '').toLowerCase().includes(q) ||
       String(po.createdBy  || '').toLowerCase().includes(q)
     );
-  }, [purchaseOrders, searchTerm]);
+  }, [activePOs, searchTerm]);
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
@@ -377,15 +403,6 @@ export function GeneratePOPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => handleCopyPo(po)}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                            title="Copy details"
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
                             onClick={() => handleOpenEditPoModal(po)}
                             className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
                             title="Edit details"
@@ -395,7 +412,7 @@ export function GeneratePOPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setDeleteTarget(po.poNumber)}
+                            onClick={() => setDeleteTarget(po)}
                             className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
                             title="Delete Record"
                           >
@@ -771,7 +788,7 @@ export function GeneratePOPage() {
               Delete Purchase Order
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground mt-1">
-              Are you sure you want to delete <span className="font-semibold text-foreground">{deleteTarget}</span>? This action cannot be undone.
+              Are you sure you want to delete <span className="font-semibold text-foreground">{deleteTarget?.poNumber}</span>? This will mark the PO as deleted and move it to Deleted POs.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="mt-4 gap-2">

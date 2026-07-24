@@ -20,7 +20,7 @@ export function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!username || !password) {
+    if (!String(username || '').trim() || !String(password || '').trim()) {
       setAuthError('Please fill in all fields.');
       return;
     }
@@ -28,7 +28,7 @@ export function LoginPage() {
     setIsLoading(true);
     // Simulate minor network delay
     setTimeout(() => {
-      const success = login(username, password);
+      const success = login(String(username).trim(), String(password).trim());
       setIsLoading(false);
       if (success) {
         navigate(from, { replace: true });

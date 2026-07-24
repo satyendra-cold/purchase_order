@@ -21,7 +21,9 @@ import {
   BarChart3, 
   PieChart, 
   User,
-  Clock
+  Clock,
+  XCircle,
+  Trash2
 } from 'lucide-react';
 
 // ─── Helper to resolve PO Stage details ──────────────────────────────
@@ -90,15 +92,24 @@ const getPoCurrentStage = (poNumber, stages) => {
 
 export function DashboardPage() {
   const navigate = useNavigate();
-  const { users } = useAuth();
+  const { users, currentUser } = useAuth();
+
+  const canAccessCanceled = currentUser?.pageAccess?.includes('Canceled Orders');
+  const canAccessDeleted = currentUser?.pageAccess?.includes('Deleted POs');
 
   // ─── Sheet-backed State Lists ──────────────────────────────────────
   const [purchaseOrders] = useSheetData('FMS', 'poNumber');
   const [vendorsList] = useSheetData('Vendors', 'id');
+  const [canceledOrders] = useSheetData('Cancel', 'Timestamp');
 
   const hasValue = (val) => val != null && String(val).trim() !== '';
 
-  const displayPOs = purchaseOrders;
+  const displayPOs = useMemo(() => {
+    return purchaseOrders.filter(po => {
+      const status = String(po['Delete Status'] || po.deleteStatus || '').trim().toLowerCase();
+      return status !== 'deleted';
+    });
+  }, [purchaseOrders]);
 
   const displayBills = useMemo(() => {
     return purchaseOrders
@@ -177,6 +188,22 @@ export function DashboardPage() {
       return st.name !== 'Completed';
     }).length;
   }, [displayPOs, getStageDetails]);
+
+  const totalCanceledRecords = Array.isArray(canceledOrders) ? canceledOrders.length : 0;
+  const totalCanceledQty = useMemo(() => {
+    if (!Array.isArray(canceledOrders)) return 0;
+    return canceledOrders.reduce((sum, item) => {
+      const q = Number(item['Cancel Qty'] || item.cancelQty || 0);
+      return sum + (isNaN(q) ? 0 : q);
+    }, 0);
+  }, [canceledOrders]);
+
+  const totalDeletedPOs = useMemo(() => {
+    return purchaseOrders.filter(po => {
+      const status = String(po['Delete Status'] || po.deleteStatus || '').trim().toLowerCase();
+      return status === 'deleted';
+    }).length;
+  }, [purchaseOrders]);
 
   // Aggregate completion efficiency and average cycle delay across all steps
   const analyticsEfficiency = useMemo(() => {
@@ -348,7 +375,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
+      {/* Primary KPI Cards Grid (4 columns) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         {/* KPI 1: Total Ordered Quantity */}
@@ -385,39 +412,50 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* KPI 3: On-Time Logistics Efficiency */}
-        <Card className="border-border bg-card shadow-sm rounded-2xl relative overflow-hidden group hover:shadow-md transition-shadow">
-          <div className="absolute right-0 top-0 h-24 w-24 bg-emerald-500/5 rounded-bl-full pointer-events-none transition-transform group-hover:scale-110 duration-300" />
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <CheckCircle2 className="h-5 w-5" />
-            </div>
-            <div className="text-left">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">On-Time Completion</p>
-              <p className="text-2xl font-bold text-foreground mt-0.5">{analyticsEfficiency.onTimePercentage}%</p>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Zero delay completion rate
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* KPI 3: Canceled Orders */}
+        {canAccessCanceled && (
+          <Card 
+            onClick={() => navigate('/canceled-orders')} 
+            className="border-border bg-card shadow-sm rounded-2xl relative overflow-hidden group hover:shadow-md transition-shadow cursor-pointer border-rose-200/60 dark:border-rose-900/30"
+          >
+            <div className="absolute right-0 top-0 h-24 w-24 bg-rose-500/5 rounded-bl-full pointer-events-none transition-transform group-hover:scale-110 duration-300" />
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                <XCircle className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Canceled Orders</p>
+                <p className="text-2xl font-bold text-foreground mt-0.5">{totalCanceledRecords}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  <span className="font-semibold text-foreground">{totalCanceledQty.toLocaleString()}</span> units canceled
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* KPI 4: Average Delay Days */}
-        <Card className="border-border bg-card shadow-sm rounded-2xl relative overflow-hidden group hover:shadow-md transition-shadow">
-          <div className="absolute right-0 top-0 h-24 w-24 bg-rose-500/5 rounded-bl-full pointer-events-none transition-transform group-hover:scale-110 duration-300" />
-          <CardContent className="p-5 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
-              <Timer className="h-5 w-5" />
-            </div>
-            <div className="text-left">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Avg Pipeline Delay</p>
-              <p className="text-2xl font-bold text-foreground mt-0.5">{analyticsEfficiency.avgDelayDays} Days</p>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                Across {analyticsEfficiency.totalCompletions} workflow actions
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* KPI 4: Deleted POs */}
+        {canAccessDeleted && (
+          <Card 
+            onClick={() => navigate('/deleted-pos')} 
+            className="border-border bg-card shadow-sm rounded-2xl relative overflow-hidden group hover:shadow-md transition-shadow cursor-pointer border-rose-200/60 dark:border-rose-900/30"
+          >
+            <div className="absolute right-0 top-0 h-24 w-24 bg-rose-500/5 rounded-bl-full pointer-events-none transition-transform group-hover:scale-110 duration-300" />
+            <CardContent className="p-5 flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="text-left">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Deleted POs</p>
+                <p className="text-2xl font-bold text-foreground mt-0.5">{totalDeletedPOs}</p>
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  Soft-deleted purchase order records
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
       </div>
 
       {/* Main Charts Row */}

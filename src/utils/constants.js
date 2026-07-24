@@ -8,6 +8,9 @@ export const AVAILABLE_PAGES = [
   'Print Invoice',
   'Supply Check',
   'Approve Product',
-  'Payment Processing'
+  'Payment Processing',
+  'Canceled Orders',
+  'Deleted POs'
 ];
 export const AVAILABLE_ROLES = ['ADMIN', 'USER'];
+

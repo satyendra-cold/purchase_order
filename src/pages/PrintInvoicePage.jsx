@@ -25,8 +25,10 @@ import {
   CalendarClock,
   Eye,
   FileDown,
+  XCircle,
 } from 'lucide-react';
 import jsPDF from 'jspdf';
+import { CancelOrderDialog } from '@/components/shared/CancelOrderDialog';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -86,6 +88,7 @@ export function PrintInvoicePage() {
   const [activeTab, setActiveTab] = useState('pending');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
+  const [cancelDialog, setCancelDialog] = useState({ open: false, item: null });
 
   // ── Pending   = planned4 (col AE) NOT null  AND  actual4 (col AF) IS empty
   // ── Completed = planned4 (col AE) NOT null  AND  actual4 (col AF) NOT empty
@@ -418,10 +421,12 @@ export function PrintInvoicePage() {
     setConfirmDialog({ open: false, item: null });
   };
 
+  const isDeleted = (r) => String(r['Delete Status'] || r.deleteStatus || '').trim().toLowerCase() === 'deleted';
+
   // ── Filtered & searched list ───────────────────────────────────────
   const filteredItems = useMemo(() => {
-    // Only show items where planned4 (col AE) has a value
-    let list = fmsData.filter((r) => hasValue(r.planned4));
+    // Only show items where planned4 (col AE) has a value and are not deleted
+    let list = fmsData.filter((r) => hasValue(r.planned4) && !isDeleted(r));
 
     if (activeTab === 'pending') list = list.filter(isPending);
     else if (activeTab === 'history') list = list.filter(isCompleted);
@@ -441,7 +446,7 @@ export function PrintInvoicePage() {
   }, [fmsData, activeTab, searchTerm]);
 
   const counts = useMemo(() => {
-    const staged = fmsData.filter((r) => hasValue(r.planned4));
+    const staged = fmsData.filter((r) => hasValue(r.planned4) && !isDeleted(r));
     const pendingCount = staged.filter(isPending).length;
     const historyCount = staged.filter(isCompleted).length;
     return {
@@ -558,9 +563,6 @@ export function PrintInvoicePage() {
                     <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
                       <TableCell className="pl-4 md:pl-6 py-4 text-left">
                         <div className="flex items-center gap-1.5">
-                          <Button variant="ghost" size="icon" onClick={() => setDetailDialog({ open: true, item })} className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer" title="View details">
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => handlePrintPO(item)} className="h-8 w-8 text-slate-700 hover:text-slate-900 hover:bg-accent rounded-lg cursor-pointer dark:text-slate-300 dark:hover:text-slate-100" title="Print PO">
                             <FileDown className="h-3.5 w-3.5" />
                           </Button>
@@ -568,9 +570,20 @@ export function PrintInvoicePage() {
                             <Printer className="h-3.5 w-3.5" />
                           </Button>
                           {!hasValue(item.actual4) && (
-                            <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
-                              <Printer className="h-3.5 w-3.5" />Invoice Printed
-                            </Button>
+                            <>
+                              <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
+                                <Printer className="h-3.5 w-3.5" />Invoice Printed
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => setCancelDialog({ open: true, item })}
+                                className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/30 gap-1 text-[11px] rounded-xl px-2.5 h-8 cursor-pointer"
+                                title="Cancel PO"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                                Cancel
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>
@@ -750,6 +763,15 @@ export function PrintInvoicePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Order Dialog */}
+      <CancelOrderDialog
+        open={cancelDialog.open}
+        onClose={() => setCancelDialog({ open: false, item: null })}
+        item={cancelDialog.item}
+        stageName="Print Invoice"
+      />
+
     </div>
   );
 }

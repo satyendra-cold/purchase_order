@@ -25,7 +25,9 @@ import {
   MapPin,
   CalendarClock,
   Eye,
+  XCircle,
 } from 'lucide-react';
+import { CancelOrderDialog } from '@/components/shared/CancelOrderDialog';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -85,6 +87,7 @@ export function ReadyProductPage() {
   const [activeTab, setActiveTab] = useState('pending');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
+  const [cancelDialog, setCancelDialog] = useState({ open: false, item: null });
 
   // ── Pending   = planned2 (col S) NOT null  AND  actual2 (col T) IS null
   // ── Completed = planned2 (col S) NOT null  AND  actual2 (col T) NOT null
@@ -111,10 +114,12 @@ export function ReadyProductPage() {
     setConfirmDialog({ open: false, item: null });
   };
 
+  const isDeleted = (r) => String(r['Delete Status'] || r.deleteStatus || '').trim().toLowerCase() === 'deleted';
+
   // ── Filtered & searched list ───────────────────────────────────────
   const filteredItems = useMemo(() => {
-    // Only show rows that have planned2 set (are in the "Ready Product" stage)
-    let list = readyProducts.filter((r) => hasValue(r.planned2));
+    // Only show rows that have planned2 set and are not deleted
+    let list = readyProducts.filter((r) => hasValue(r.planned2) && !isDeleted(r));
 
     if (activeTab === 'pending') list = list.filter(isPending);
     else if (activeTab === 'history') list = list.filter(isCompleted);
@@ -137,7 +142,7 @@ export function ReadyProductPage() {
   // ── Tab counts ─────────────────────────────────────────────────────
   const counts = useMemo(
     () => {
-      const staged = readyProducts.filter((r) => hasValue(r.planned2));
+      const staged = readyProducts.filter((r) => hasValue(r.planned2) && !isDeleted(r));
       const pendingCount = staged.filter(isPending).length;
       const historyCount = staged.filter(isCompleted).length;
       return {
@@ -284,26 +289,28 @@ export function ReadyProductPage() {
                       {/* Actions */}
                       <TableCell className="pl-4 md:pl-6 py-4 text-left">
                         <div className="flex items-center gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDetailDialog({ open: true, item })}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                            title="View details"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
 
                           {!hasValue(item.actual2) && (
-                            <Button
-                              onClick={() => {
-                                setConfirmDialog({ open: true, item });
-                              }}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
-                            >
-                              <PackageCheck className="h-3.5 w-3.5" />
-                              Mark Ready
-                            </Button>
+                            <>
+                              <Button
+                                onClick={() => {
+                                  setConfirmDialog({ open: true, item });
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                              >
+                                <PackageCheck className="h-3.5 w-3.5" />
+                                Mark Ready
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => setCancelDialog({ open: true, item })}
+                                className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/30 gap-1 text-[11px] rounded-xl px-2.5 h-8 cursor-pointer"
+                                title="Cancel PO"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                                Cancel
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>
@@ -491,6 +498,14 @@ export function ReadyProductPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Order Dialog */}
+      <CancelOrderDialog
+        open={cancelDialog.open}
+        onClose={() => setCancelDialog({ open: false, item: null })}
+        item={cancelDialog.item}
+        stageName="Ready Product"
+      />
 
     </div>
   );

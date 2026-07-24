@@ -33,7 +33,9 @@ import {
   Map,
   CalendarClock,
   Eye,
+  XCircle,
 } from 'lucide-react';
+import { CancelOrderDialog } from '@/components/shared/CancelOrderDialog';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
@@ -89,6 +91,7 @@ export function CheckTransportPage() {
   const [activeTab, setActiveTab]       = useState('pending');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [detailDialog, setDetailDialog]   = useState({ open: false, item: null });
+  const [cancelDialog, setCancelDialog]   = useState({ open: false, item: null });
 
   // Confirm dialog form fields
   const [transporterName, setTransporterName] = useState('');
@@ -125,10 +128,12 @@ export function CheckTransportPage() {
     setConfirmDialog({ open: false, item: null });
   };
 
+  const isDeleted = (r) => String(r['Delete Status'] || r.deleteStatus || '').trim().toLowerCase() === 'deleted';
+
   // ── Filtered & searched list ───────────────────────────────────────
   const filteredItems = useMemo(() => {
-    // Only show rows that have planned3 set (are in the "Check Transport" stage)
-    let list = fmsData.filter((r) => hasValue(r.planned3));
+    // Only show rows that have planned3 set and are not deleted
+    let list = fmsData.filter((r) => hasValue(r.planned3) && !isDeleted(r));
 
     if (activeTab === 'pending')   list = list.filter(isPending);
     else if (activeTab === 'history') list = list.filter(isCompleted);
@@ -149,7 +154,7 @@ export function CheckTransportPage() {
   }, [fmsData, activeTab, searchTerm]);
 
   const counts = useMemo(() => {
-    const staged = fmsData.filter((r) => hasValue(r.planned3));
+    const staged = fmsData.filter((r) => hasValue(r.planned3) && !isDeleted(r));
     const pendingCount = staged.filter(isPending).length;
     const historyCount = staged.filter(isCompleted).length;
     return {
@@ -272,30 +277,32 @@ export function CheckTransportPage() {
                       {/* Actions */}
                       <TableCell className="pl-4 md:pl-6 py-4 text-left">
                         <div className="flex items-center gap-1.5">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setDetailDialog({ open: true, item })}
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                            title="View details"
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
 
                           {!hasValue(item.actual3) && (
-                            <Button
-                              onClick={() => {
-                                setTransporterName(item.transporterName || '');
-                                setEditQuantity(String(item.quantity || item.totalQuantity || ''));
-                                setEditLocation(item.deliveryLocation || item.location || '');
-                                setEditAddress(item.deliveryAddress || item.address || '');
-                                setConfirmDialog({ open: true, item });
-                              }}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
-                            >
-                              <Truck className="h-3.5 w-3.5" />
-                              Transport Verified
-                            </Button>
+                            <>
+                              <Button
+                                onClick={() => {
+                                  setTransporterName(item.transporterName || '');
+                                  setEditQuantity(String(item.quantity || item.totalQuantity || ''));
+                                  setEditLocation(item.deliveryLocation || item.location || '');
+                                  setEditAddress(item.deliveryAddress || item.address || '');
+                                  setConfirmDialog({ open: true, item });
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                              >
+                                <Truck className="h-3.5 w-3.5" />
+                                Transport Verified
+                              </Button>
+                              <Button
+                                variant="outline"
+                                onClick={() => setCancelDialog({ open: true, item })}
+                                className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/30 gap-1 text-[11px] rounded-xl px-2.5 h-8 cursor-pointer"
+                                title="Cancel PO"
+                              >
+                                <XCircle className="h-3.5 w-3.5" />
+                                Cancel
+                              </Button>
+                            </>
                           )}
                         </div>
                       </TableCell>
@@ -552,6 +559,14 @@ export function CheckTransportPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Cancel Order Dialog */}
+      <CancelOrderDialog
+        open={cancelDialog.open}
+        onClose={() => setCancelDialog({ open: false, item: null })}
+        item={cancelDialog.item}
+        stageName="Check Transport"
+      />
 
     </div>
   );

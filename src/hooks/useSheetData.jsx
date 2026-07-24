@@ -219,7 +219,10 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
   // entire row in one atomic updateRow call. Throws on any failure.
   const patchItem = useCallback(async (keyValue, fields, { onlySpecified = false } = {}) => {
     const internalItem = internal.current.find(
-      x => String(x[keyField]) === String(keyValue)
+      x => String(x[keyField] ?? '') === String(keyValue) ||
+           String(x['Serial No'] ?? '') === String(keyValue) ||
+           String(x['serialNo'] ?? '') === String(keyValue) ||
+           String(x['poNumber'] ?? '') === String(keyValue)
     );
     if (!internalItem?._row) throw new Error('Row not found — try refreshing the page.');
     if (!headers.current.length) throw new Error('Sheet not loaded — try refreshing the page.');
@@ -243,22 +246,15 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
       );
     }
 
-    // Single atomic write — merge existing values with the patched fields
-    // toRow sends '' for unknown/read-only columns so existing sheet values are preserved
-    let rowData;
-    if (onlySpecified) {
-      rowData = headers.current.map(h => {
-        if (isReadOnlyField(h)) return '';
-        if (!(h in fields)) return '';
-        const v = fields[h];
-        if (Array.isArray(v)) return JSON.stringify(v);
-        return v != null ? String(v) : '';
-      });
-    } else {
-      const mergedItem = { ...internalItem, ...fields };
-      rowData = toRow(headers.current, mergedItem);
+    // Write only the specified writable fields using updateCell to ensure non-patched columns, formulas, and formatting are untouched
+    for (const colName of writableCols) {
+      const colIndex = headers.current.indexOf(colName) + 1;
+      if (colIndex > 0) {
+        const val = fields[colName];
+        const cellValue = Array.isArray(val) ? JSON.stringify(val) : (val != null ? String(val) : '');
+        await updateCell(sheetName, internalItem._row, colIndex, cellValue);
+      }
     }
-    await updateRow(sheetName, internalItem._row, rowData);
   }, [sheetName, keyField]);
 
   return [data, setData, loading, refetch, setLocalOnly, patchItem];

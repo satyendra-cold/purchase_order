@@ -23,6 +23,8 @@ const LABEL_MAP = {
   'supply-check': 'Supply Check',
   'approve-product': 'Approve Product',
   'payment-processing': 'Payment Processing',
+  'canceled-orders': 'Canceled Orders',
+  'deleted-pos': 'Deleted POs',
 };
 
 function formatLabel(segment) {

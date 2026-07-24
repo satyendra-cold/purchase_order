@@ -96,7 +96,8 @@ export function PaymentProcessingPage() {
   const [formBillingAmount, setFormBillingAmount] = useState('');
   const [formPaymentAmount, setFormPaymentAmount] = useState('');
 
-  const qualifies = (row) => hasValue(row.planned7);
+  const isDeleted = (r) => String(r['Delete Status'] || r.deleteStatus || '').trim().toLowerCase() === 'deleted';
+  const qualifies = (row) => hasValue(row.planned7) && !isDeleted(row);
 
   // Total received per PO — used for Received/Balance column in pending tab
   const receivedByPo = useMemo(() => {
@@ -323,13 +324,6 @@ export function PaymentProcessingPage() {
                       <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
                         <TableCell className="pl-4 md:pl-6 py-4 text-left">
                           <div className="flex items-center gap-1.5">
-                            <Button
-                              variant="ghost" size="icon"
-                              onClick={() => setDetailDialog({ open: true, item })}
-                              className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg cursor-pointer"
-                            >
-                              <Eye className="h-3.5 w-3.5" />
-                            </Button>
                             <Button
                               onClick={() => handleOpenPayment(item)}
                               className={`gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm text-white ${
