@@ -12,7 +12,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { XCircle, AlertCircle, ShoppingBag, Package, MapPin } from 'lucide-react';
+import { XCircle, AlertCircle, ShoppingBag, Package, MapPin, Clock } from 'lucide-react';
 
 const makeTimestamp = () => {
   const d = new Date();
@@ -26,7 +26,11 @@ export function CancelOrderDialog({ open, onClose, item, stageName, onSuccess })
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const totalQty = Number(item?.totalQuantity || item?.quantity || 0);
+  const totalQty = Number(item?.totalQuantity || item?.['Total Quantity'] || item?.quantity || 0);
+  const rawPending = item?.['Pending Qty'] ?? item?.pendingQty ?? item?.['Pending Quantity'];
+  const pendingQtyVal = rawPending != null && rawPending !== '' ? Number(rawPending) : totalQty;
+  const maxAllowedQty = pendingQtyVal > 0 ? pendingQtyVal : totalQty;
+
   const poNumber = item?.poNumber || '';
   const vendorName = item?.vendorName || '';
   const serialNo = item?.serialNo || item?.['Serial No'] || item?.['Serial NO'] || item?.srNo || item?.['Sr No'] || '';
@@ -51,8 +55,8 @@ export function CancelOrderDialog({ open, onClose, item, stageName, onSuccess })
       return;
     }
 
-    if (qty > totalQty) {
-      setErrorMsg(`Cancel quantity cannot exceed total quantity (${totalQty.toLocaleString()}).`);
+    if (qty > maxAllowedQty) {
+      setErrorMsg(`Cancel quantity cannot exceed pending quantity (${maxAllowedQty.toLocaleString()}).`);
       return;
     }
 
@@ -133,6 +137,12 @@ export function CancelOrderDialog({ open, onClose, item, stageName, onSuccess })
                 </span>
                 <span className="font-semibold text-foreground">{totalQty.toLocaleString()}</span>
               </div>
+              <div className="flex items-center justify-between text-xs sm:text-sm">
+                <span className="text-muted-foreground flex items-center gap-1.5">
+                  <Clock className="h-3.5 w-3.5" /> Pending Quantity
+                </span>
+                <span className="font-semibold text-amber-600 dark:text-amber-400">{pendingQtyVal.toLocaleString()}</span>
+              </div>
               <div className="flex items-center justify-between text-xs sm:text-sm pt-1 border-t border-border/60">
                 <span className="text-muted-foreground">Current Stage</span>
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/50">
@@ -149,8 +159,8 @@ export function CancelOrderDialog({ open, onClose, item, stageName, onSuccess })
                 id="cancelQty"
                 type="number"
                 min="1"
-                max={totalQty}
-                placeholder={`Enter quantity (1 to ${totalQty})`}
+                max={maxAllowedQty}
+                placeholder={`Enter quantity (1 to ${maxAllowedQty.toLocaleString()})`}
                 value={cancelQty}
                 onChange={(e) => {
                   setCancelQty(e.target.value);
@@ -160,9 +170,6 @@ export function CancelOrderDialog({ open, onClose, item, stageName, onSuccess })
                 className="rounded-xl border-input bg-background"
                 autoFocus
               />
-              <p className="text-[11px] text-muted-foreground">
-                Allowed range: 1 – {totalQty.toLocaleString()}
-              </p>
             </div>
 
             {errorMsg && (

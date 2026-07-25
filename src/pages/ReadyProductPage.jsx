@@ -28,42 +28,12 @@ import {
   XCircle,
 } from 'lucide-react';
 import { CancelOrderDialog } from '@/components/shared/CancelOrderDialog';
+import { makeTimestamp, formatDisplayDate, hasValue } from '@/utils/dateUtils';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
 const formatDate = (isoString) => {
-  if (!isoString) return '—';
-  try {
-    const d = new Date(isoString);
-    // Reject Excel epoch glitches (year < 1990)
-    if (isNaN(d) || d.getFullYear() < 1990) return isoString;
-    return d.toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return isoString;
-  }
-};
-
-const calcDelayDays = (plannedISO, actualISO) => {
-  if (!plannedISO || !actualISO) return 0;
-  const planned = new Date(plannedISO);
-  const actual = new Date(actualISO);
-  const diffMs = actual.getTime() - planned.getTime();
-  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-};
-
-const hasValue = (val) => val != null && String(val).trim() !== '';
-
-const makeTimestamp = () => {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return formatDisplayDate(isoString, true);
 };
 
 // ─── Status tabs ────────────────────────────────────────────────────
@@ -266,6 +236,15 @@ export function ReadyProductPage() {
                     Vendor
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                    PO Quantity
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                    Pending Quantity
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                    Canceled Quantity
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Location
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
@@ -323,6 +302,25 @@ export function ReadyProductPage() {
                         {item.vendorName}
                       </TableCell>
 
+                      {/* PO Quantity */}
+                      <TableCell className="py-4 text-left font-bold text-xs sm:text-sm text-foreground">
+                        {Number(item.totalQuantity || item['Total Quantity'] || 0).toLocaleString()}
+                      </TableCell>
+
+                      {/* Pending Quantity (Col AV) */}
+                      <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
+                        {(item['Pending Qty'] != null && item['Pending Qty'] !== '')
+                          ? Number(item['Pending Qty']).toLocaleString()
+                          : (item.pendingQty != null && item.pendingQty !== '' ? Number(item.pendingQty).toLocaleString() : '0')}
+                      </TableCell>
+
+                      {/* Canceled Quantity (Col AW) */}
+                      <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
+                        {(item['Cancel Qty'] != null && item['Cancel Qty'] !== '')
+                          ? Number(item['Cancel Qty']).toLocaleString()
+                          : (item.cancelQty != null && item.cancelQty !== '' ? Number(item.cancelQty).toLocaleString() : '0')}
+                      </TableCell>
+
                       {/* Location */}
                       <TableCell className="py-4 text-left">
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
@@ -370,7 +368,7 @@ export function ReadyProductPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-16 text-center">
+                    <TableCell colSpan={10} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-primary/5 rounded-full">
                           <PackageCheck className="h-8 w-8 text-primary/40" />
@@ -423,12 +421,6 @@ export function ReadyProductPage() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Processed By</span>
                 <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
-              </div>
-              <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  This will write the completion date to Actual 2 (col T) in the FMS sheet.
-                </p>
               </div>
             </div>
           )}

@@ -3,6 +3,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useSheetData } from '@/hooks/useSheetData';
 import { insertRow, uploadFile } from '@/services/api';
+import { makeTimestamp, formatDisplayDate } from '@/utils/dateUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -44,7 +45,7 @@ export function GeneratePOPage() {
   const { toast } = useToast();
 
   // Sheet-backed lists
-  const [purchaseOrders, setPurchaseOrders, , refetchPOs, , patchItem] = useSheetData('FMS', 'poNumber');
+  const [purchaseOrders, setPurchaseOrders, , refetchPOs, setLocalPOs, patchItem] = useSheetData('FMS', 'poNumber');
   const [locationData, setLocationData] = useSheetData('Locations', 'name');
   const [vendors] = useSheetData('Vendors', 'id');
   const locationNames = locationData.map(l => l.name);
@@ -64,6 +65,8 @@ export function GeneratePOPage() {
   const [poNumber, setPoNumber] = useState('');
   const [vendorName, setVendorName] = useState('');
   const [totalQuantity, setTotalQuantity] = useState('');
+  const [narretion, setNarretion] = useState('');
+  const [supplyQuantity1, setSupplyQuantity1] = useState('');
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
   const [poReceivedDate, setPoReceivedDate] = useState('');
@@ -88,12 +91,6 @@ export function GeneratePOPage() {
       reader.readAsDataURL(file);
     });
 
-  const makeTimestamp = () => {
-    const d = new Date();
-    const pad = n => String(n).padStart(2, '0');
-    return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-  };
-
   // Open modal for creating new PO
   const handleOpenAddPoModal = () => {
     setIsEditing(false);
@@ -101,6 +98,8 @@ export function GeneratePOPage() {
     setEditingOriginalPoNumber('');
     setVendorName('');
     setTotalQuantity('');
+    setNarretion('');
+    setSupplyQuantity1('');
     setLocation('');
     setAddress('');
     setPoReceivedDate('');
@@ -120,6 +119,12 @@ export function GeneratePOPage() {
     setEditingOriginalPoNumber(po.poNumber);
     setVendorName(po.vendorName);
     setTotalQuantity(String(po.totalQuantity));
+    setNarretion(po['Narretion'] || po.narretion || '');
+    setSupplyQuantity1(
+      po['Supply Quantity 1'] != null && po['Supply Quantity 1'] !== ''
+        ? String(po['Supply Quantity 1'])
+        : (po.supplyQuantity1 != null && po.supplyQuantity1 !== '' ? String(po.supplyQuantity1) : '')
+    );
     setLocation(po.location);
     setAddress(po.address);
     setPoReceivedDate(po.poReceivedDate || po.timestamp?.split('T')[0] || '');
@@ -206,10 +211,24 @@ export function GeneratePOPage() {
         }
 
         const editTimestamp = makeTimestamp();
+        const parsedSupplyQty = supplyQuantity1 ? parseFloat(supplyQuantity1) : '';
 
         const updatedPOs = purchaseOrders.map(po =>
           po.poNumber === editingOriginalPoNumber
-            ? { ...po, poNumber: poNumber.trim(), vendorName: vendorName.trim(), totalQuantity: qty, location, address: address.trim(), poReceivedDate, poExpiredDate, poPdfName: updatedPoPdfName, timestamp: editTimestamp }
+            ? {
+                ...po,
+                poNumber: poNumber.trim(),
+                vendorName: vendorName.trim(),
+                totalQuantity: qty,
+                location,
+                address: address.trim(),
+                poReceivedDate,
+                poExpiredDate,
+                poPdfName: updatedPoPdfName,
+                timestamp: editTimestamp,
+                'Narretion': narretion.trim(),
+                'Supply Quantity 1': parsedSupplyQty
+              }
             : po
         );
         setPurchaseOrders(updatedPOs);
@@ -236,22 +255,63 @@ export function GeneratePOPage() {
           poPdfUrl = res.fileUrl || '';
         }
 
-        const rowData = [
+        const parsedSupplyQty = supplyQuantity1 ? parseFloat(supplyQuantity1) : '';
+
+        const newPoObj = {
+          'Timestamp': timestamp,
           timestamp,
-          nextSerialNo,
-          poNumber.trim(),
-          vendorName.trim(),
-          qty,
+          'Serial No': nextSerialNo,
+          serialNo: nextSerialNo,
+          'PO Number': poNumber.trim(),
+          poNumber: poNumber.trim(),
+          'Vendor Name': vendorName.trim(),
+          vendorName: vendorName.trim(),
+          'Total Quantity': qty,
+          totalQuantity: qty,
+          'Location': location,
           location,
-          address.trim(),
+          'Address': address.trim(),
+          address: address.trim(),
+          'Created By': createdBy,
           createdBy,
+          'PO Received Date': poReceivedDate,
           poReceivedDate,
+          'PO Expired Date': poExpiredDate,
           poExpiredDate,
-          poPdfUrl,
-        ];
+          'PO PDF': poPdfUrl,
+          poPdfName: poPdfUrl,
+          'Narretion': narretion.trim(),
+          narretion: narretion.trim(),
+          'Supply Quantity 1': parsedSupplyQty,
+          supplyQuantity1: parsedSupplyQty,
+        };
+
+        // 1. Close form modal immediately so user returns to the list view
+        setIsFormOpen(false);
+
+        // 2. Instantly update UI state using setLocalPOs (0ms real-time UI update!)
+        setLocalPOs(prev => [newPoObj, ...prev]);
+
+        // 3. Save single 52-column row to Google Sheets
+        const rowData = new Array(52).fill('');
+        rowData[0] = timestamp;
+        rowData[1] = nextSerialNo;
+        rowData[2] = poNumber.trim();
+        rowData[3] = vendorName.trim();
+        rowData[4] = qty;
+        rowData[5] = location;
+        rowData[6] = address.trim();
+        rowData[7] = createdBy;
+        rowData[8] = poReceivedDate;
+        rowData[9] = poExpiredDate;
+        rowData[10] = poPdfUrl;
+        rowData[50] = narretion.trim();
+        rowData[51] = parsedSupplyQty;
 
         await insertRow('FMS', rowData);
         toast(`Purchase Order ${poNumber.trim()} saved!`, 'success');
+
+        // 4. Refetch sheet to keep row indices and calculated formulas 100% in sync
         refetchPOs();
       }
     } catch (err) {
@@ -383,7 +443,9 @@ export function GeneratePOPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">#</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor Name</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Total Quantity</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">PO Quantity</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Narretion</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Supply Quantity</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Address</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Created By</TableHead>
@@ -436,9 +498,21 @@ export function GeneratePOPage() {
                         {po.vendorName}
                       </TableCell>
 
-                      {/* Total Quantity */}
+                      {/* PO Quantity */}
                       <TableCell className="py-4 text-left font-bold text-xs sm:text-sm text-foreground">
                         {Number(po.totalQuantity || 0).toLocaleString()}
+                      </TableCell>
+
+                      {/* Narretion */}
+                      <TableCell className="py-4 text-left text-xs text-muted-foreground max-w-[150px] truncate" title={po['Narretion'] || po.narretion || ''}>
+                        {po['Narretion'] || po.narretion || '—'}
+                      </TableCell>
+
+                      {/* Supply Quantity */}
+                      <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
+                        {(po['Supply Quantity 1'] != null && po['Supply Quantity 1'] !== '')
+                          ? Number(po['Supply Quantity 1']).toLocaleString()
+                          : (po.supplyQuantity1 != null && po.supplyQuantity1 !== '' ? Number(po.supplyQuantity1).toLocaleString() : '—')}
                       </TableCell>
 
                       {/* Location Badge */}
@@ -466,13 +540,13 @@ export function GeneratePOPage() {
                       <TableCell className="py-4 text-left">
                         <span className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                          {po.poReceivedDate || formatTimestamp(po.timestamp)}
+                          {formatDisplayDate(po.poReceivedDate || po['PO Received Date'] || po.timestamp, false)}
                         </span>
                       </TableCell>
 
                       {/* PO Expired Date */}
                       <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
-                        {po.poExpiredDate || '-'}
+                        {formatDisplayDate(po.poExpiredDate || po['PO Expired Date'], false)}
                       </TableCell>
 
                       {/* PO PDF */}
@@ -586,11 +660,11 @@ export function GeneratePOPage() {
                 )}
               </div>
 
-              {/* Total Quantity */}
+              {/* PO Quantity */}
               <div className="space-y-1.5 text-left">
                 <Label htmlFor="totalQuantity" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
                   <ShoppingBag className="h-3.5 w-3.5" />
-                  Total Quantity*
+                  PO Quantity*
                 </Label>
                 <Input
                   id="totalQuantity"
@@ -601,6 +675,39 @@ export function GeneratePOPage() {
                   placeholder="e.g. 250"
                   className="rounded-xl bg-background border-input"
                   required
+                />
+              </div>
+
+              {/* Supply Quantity */}
+              <div className="space-y-1.5 text-left">
+                <Label htmlFor="supplyQuantity1" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
+                  <ShoppingBag className="h-3.5 w-3.5" />
+                  Supply Qty
+                </Label>
+                <Input
+                  id="supplyQuantity1"
+                  type="number"
+                  min="0"
+                  value={supplyQuantity1}
+                  onChange={(e) => setSupplyQuantity1(e.target.value)}
+                  placeholder="e.g. 200"
+                  className="rounded-xl bg-background border-input"
+                />
+              </div>
+
+              {/* Narretion */}
+              <div className="space-y-1.5 text-left sm:col-span-2">
+                <Label htmlFor="narretion" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
+                  <FilePlus2 className="h-3.5 w-3.5" />
+                  Narretion
+                </Label>
+                <Input
+                  id="narretion"
+                  type="text"
+                  value={narretion}
+                  onChange={(e) => setNarretion(e.target.value)}
+                  placeholder="Enter narretion..."
+                  className="rounded-xl bg-background border-input"
                 />
               </div>
 

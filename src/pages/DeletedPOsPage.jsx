@@ -11,8 +11,9 @@ import {
   Clock, 
   FileText, 
   ShoppingBag,
-  FilePlus2
+  FilePlus2,
 } from 'lucide-react';
+import { formatDisplayDate } from '@/utils/dateUtils';
 
 export function DeletedPOsPage() {
   const [fmsData, , loading] = useSheetData('FMS', 'Serial No');
@@ -161,7 +162,7 @@ export function DeletedPOsPage() {
                     const loc = item.location || item['Location'] || '-';
                     const addr = item.address || item['Address'] || '-';
                     const createdBy = item.createdBy || item['Created By'] || '-';
-                    const receivedDate = item.poReceivedDate || item['PO Received Date'] || formatTimestamp(item.timestamp);
+                    const receivedDate = formatDisplayDate(item.poReceivedDate || item['PO Received Date'] || item.timestamp, false);
 
                     return (
                       <TableRow key={item._row || serialNo || idx} className="hover:bg-accent/40 border-b border-border transition-colors">

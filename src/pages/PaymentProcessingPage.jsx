@@ -34,26 +34,12 @@ import {
   Clock,
 } from 'lucide-react';
 
+import { makeTimestamp, formatDisplayDate, hasValue } from '@/utils/dateUtils';
+
 // ─── Helpers ─────────────────────────────────────────────────────────
 
 const formatDate = (isoString) => {
-  if (!isoString) return '—';
-  try {
-    return new Date(isoString).toLocaleString('en-IN', {
-      day: 'numeric', month: 'short', year: 'numeric',
-      hour: '2-digit', minute: '2-digit', hour12: true,
-    });
-  } catch {
-    return isoString;
-  }
-};
-
-const hasValue = (val) => val != null && String(val).trim() !== '';
-
-const makeTimestamp = () => {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return formatDisplayDate(isoString, true);
 };
 
 const fmt = (n) =>
@@ -218,7 +204,7 @@ export function PaymentProcessingPage() {
           Payment Processing
         </h1>
         <p className="text-xs md:text-sm text-muted-foreground mt-1">
-          Record vendor payments. Every entry is logged to the payment history sheet.
+          Record vendor payments and manage payment processing history.
         </p>
       </div>
 
@@ -308,6 +294,9 @@ export function PaymentProcessingPage() {
                     <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Actions</TableHead>
                     <TH>PO Number</TH>
                     <TH>Vendor</TH>
+                    <TH>PO Quantity</TH>
+                    <TH>Pending Quantity</TH>
+                    <TH>Canceled Quantity</TH>
                     <TH>Location</TH>
                     <TH>Bill Amount</TH>
                     <TH>Received / Balance</TH>
@@ -338,6 +327,19 @@ export function PaymentProcessingPage() {
 
                         <TableCell className="px-3 py-4 font-semibold text-primary text-xs sm:text-sm">{item.poNumber}</TableCell>
                         <TableCell className="px-3 py-4 text-xs sm:text-sm font-medium text-foreground">{item.vendorName}</TableCell>
+                        <TableCell className="px-3 py-4 font-bold text-xs sm:text-sm text-foreground">
+                          {Number(item.totalQuantity || item['Total Quantity'] || 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="px-3 py-4 font-semibold text-xs sm:text-sm text-foreground">
+                          {(item['Pending Qty'] != null && item['Pending Qty'] !== '')
+                            ? Number(item['Pending Qty']).toLocaleString()
+                            : (item.pendingQty != null && item.pendingQty !== '' ? Number(item.pendingQty).toLocaleString() : '0')}
+                        </TableCell>
+                        <TableCell className="px-3 py-4 font-semibold text-xs sm:text-sm text-foreground">
+                          {(item['Cancel Qty'] != null && item['Cancel Qty'] !== '')
+                            ? Number(item['Cancel Qty']).toLocaleString()
+                            : (item.cancelQty != null && item.cancelQty !== '' ? Number(item.cancelQty).toLocaleString() : '0')}
+                        </TableCell>
 
                         <TableCell className="px-3 py-4">
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
@@ -385,7 +387,7 @@ export function PaymentProcessingPage() {
                     );
                   }) : (
                     <TableRow>
-                      <TableCell colSpan={8} className="py-16 text-center">
+                      <TableCell colSpan={11} className="py-16 text-center">
                         <EmptyState />
                       </TableCell>
                     </TableRow>

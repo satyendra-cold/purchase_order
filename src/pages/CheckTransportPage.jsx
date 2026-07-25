@@ -36,35 +36,12 @@ import {
   XCircle,
 } from 'lucide-react';
 import { CancelOrderDialog } from '@/components/shared/CancelOrderDialog';
+import { makeTimestamp, formatDisplayDate, hasValue } from '@/utils/dateUtils';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
 const formatDate = (isoString) => {
-  if (!isoString) return '—';
-  try {
-    const d = new Date(isoString);
-    if (isNaN(d) || d.getFullYear() < 1990) return isoString;
-    return d.toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return isoString;
-  }
-};
-
-/** true if val is not null / not empty string */
-const hasValue = (val) => val != null && String(val).trim() !== '';
-
-/** Current timestamp in M/D/YYYY H:mm:ss — matches FMS sheet format */
-const makeTimestamp = () => {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return formatDisplayDate(isoString, true);
 };
 
 const TABS = [
@@ -106,6 +83,20 @@ export function CheckTransportPage() {
 
   // ── Mark transport as verified ─────────────────────────────────────
   const handleMarkComplete = (item) => {
+    const enteredQty = parseInt(editQuantity, 10);
+    const rawPending = item['Pending Qty'] ?? item.pendingQty;
+    const maxAllowedQty = (rawPending != null && rawPending !== '') ? Number(rawPending) : Number(item.totalQuantity || item.quantity || 0);
+
+    if (isNaN(enteredQty) || enteredQty <= 0) {
+      toast('Please enter a valid quantity greater than 0', 'error');
+      return;
+    }
+
+    if (enteredQty > maxAllowedQty) {
+      toast(`Quantity cannot exceed pending quantity (${maxAllowedQty.toLocaleString()})`, 'error');
+      return;
+    }
+
     const nowTimestamp = makeTimestamp(); // M/D/YYYY H:mm:ss format
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
 
@@ -115,7 +106,7 @@ export function CheckTransportPage() {
             ...r,
             actual3:          nowTimestamp,
             transporterName:  transporterName.trim(),
-            quantity:         parseInt(editQuantity, 10) || r.quantity || r.totalQuantity,
+            quantity:         enteredQty,
             deliveryLocation: editLocation,
             deliveryAddress:  editAddress.trim(),
             updatedBy:        userName,
@@ -282,8 +273,10 @@ export function CheckTransportPage() {
                             <>
                               <Button
                                 onClick={() => {
+                                  const rawPending = item['Pending Qty'] ?? item.pendingQty;
+                                  const defaultQty = (rawPending != null && rawPending !== '') ? String(rawPending) : String(item.quantity || item.totalQuantity || '');
                                   setTransporterName(item.transporterName || '');
-                                  setEditQuantity(String(item.quantity || item.totalQuantity || ''));
+                                  setEditQuantity(defaultQty);
                                   setEditLocation(item.deliveryLocation || item.location || '');
                                   setEditAddress(item.deliveryAddress || item.address || '');
                                   setConfirmDialog({ open: true, item });
@@ -402,7 +395,7 @@ export function CheckTransportPage() {
               Confirm Transport Verified
             </DialogTitle>
             <DialogDescription className="text-[11px] text-muted-foreground mt-0.5 leading-snug">
-              Fill in transport details to stamp Actual 3 and save to FMS sheet.
+              Fill in transport details to proceed.
             </DialogDescription>
           </DialogHeader>
 
@@ -436,17 +429,24 @@ export function CheckTransportPage() {
                 </Select>
               </div>
 
-              <div className="space-y-1">
-                <Label className="text-[11px] font-semibold text-muted-foreground">Quantity*</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={editQuantity}
-                  onChange={(e) => setEditQuantity(e.target.value)}
-                  className="rounded-xl bg-background border-input text-xs h-9"
-                  required
-                />
-              </div>
+              {(() => {
+                const rawPending = confirmDialog.item['Pending Qty'] ?? confirmDialog.item.pendingQty;
+                const maxAllowedQty = (rawPending != null && rawPending !== '') ? Number(rawPending) : Number(confirmDialog.item.totalQuantity || confirmDialog.item.quantity || 0);
+                return (
+                  <div className="space-y-1">
+                    <Label className="text-[11px] font-semibold text-muted-foreground">Quantity*</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max={maxAllowedQty}
+                      value={editQuantity}
+                      onChange={(e) => setEditQuantity(e.target.value)}
+                      className="rounded-xl bg-background border-input text-xs h-9"
+                      required
+                    />
+                  </div>
+                );
+              })()}
 
               <div className="space-y-1">
                 <Label className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1">
@@ -480,13 +480,6 @@ export function CheckTransportPage() {
                   rows="2"
                   required
                 />
-              </div>
-
-              <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                <p className="text-[10px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1">
-                  <AlertCircle className="h-3 w-3 shrink-0" />
-                  This will write Actual 3 (col X) and transport details to the FMS sheet.
-                </p>
               </div>
             </div>
           )}
