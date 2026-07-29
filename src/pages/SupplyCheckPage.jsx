@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/useToast';
 import { useSheetData } from '@/hooks/useSheetData';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -27,40 +28,12 @@ import {
   XCircle,
 } from 'lucide-react';
 import { CancelOrderDialog } from '@/components/shared/CancelOrderDialog';
+import { makeTimestamp, formatDisplayDate, hasValue } from '@/utils/dateUtils';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
 const formatDate = (isoString) => {
-  if (!isoString) return '—';
-  try {
-    return new Date(isoString).toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return isoString;
-  }
-};
-
-const calcDelayDays = (plannedISO, actualISO) => {
-  if (!plannedISO || !actualISO) return 0;
-  const planned = new Date(plannedISO);
-  const actual = new Date(actualISO);
-  const diffMs = actual.getTime() - planned.getTime();
-  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-};
-
-
-const hasValue = (val) => val != null && String(val).trim() !== '';
-
-const makeTimestamp = () => {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return formatDisplayDate(isoString, true);
 };
 
 const TABS = [
@@ -81,6 +54,7 @@ export function SupplyCheckPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('pending');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
+  const [damageQtyInput, setDamageQtyInput] = useState('');
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
   const [cancelDialog, setCancelDialog] = useState({ open: false, item: null });
 
@@ -93,6 +67,7 @@ export function SupplyCheckPage() {
   const handleMarkComplete = (item) => {
     const nowTimestamp = makeTimestamp(); // M/D/YYYY H:mm:ss format
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
+    const parsedDamage = damageQtyInput !== '' ? parseFloat(damageQtyInput) : '';
 
     // Update FMS directly
     const updated = fmsData.map((r) =>
@@ -101,6 +76,11 @@ export function SupplyCheckPage() {
             ...r,
             actual5: nowTimestamp,
             updatedBy: userName,
+            'Damage Qty': parsedDamage,
+            'Damage Quantity': parsedDamage,
+            damageQty: parsedDamage,
+            'BD': parsedDamage,
+            BD: parsedDamage,
           }
         : r
     );
@@ -251,7 +231,14 @@ export function SupplyCheckPage() {
                         <div className="flex items-center gap-1.5">
                           {!hasValue(item.actual5) && (
                             <>
-                              <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
+                              <Button
+                                onClick={() => {
+                                  const existingDamage = item.damageQty ?? item['Damage Qty'] ?? item['Damage Quantity'] ?? item.BD ?? item['BD'] ?? '';
+                                  setDamageQtyInput(existingDamage !== '' ? String(existingDamage) : '');
+                                  setConfirmDialog({ open: true, item });
+                                }}
+                                className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
+                              >
                                 <ClipboardCheck className="h-3.5 w-3.5" />Verify Supply
                               </Button>
                               <Button
@@ -344,17 +331,24 @@ export function SupplyCheckPage() {
                 <span className="font-medium">{confirmDialog.item.vendorName}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Planned 5 (AH)</span>
+                <span className="text-muted-foreground">Planned Date</span>
                 <span className="font-medium">{formatDate(confirmDialog.item.planned5)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Verified By</span>
                 <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
               </div>
-              <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5" />This will record Actual 5 (col AI) on the FMS sheet.
-                </p>
+              <div className="space-y-1.5 text-left pt-2 border-t border-border">
+                <Label className="text-xs font-semibold text-muted-foreground">Damage Qty</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={damageQtyInput}
+                  onChange={(e) => setDamageQtyInput(e.target.value)}
+                  placeholder="e.g. 0"
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                />
               </div>
             </div>
           )}
@@ -387,6 +381,7 @@ export function SupplyCheckPage() {
                 { label: 'Planned 5 (AH)', value: formatDate(detailDialog.item.planned5) },
                 { label: 'Actual 5 (AI)', value: hasValue(detailDialog.item.actual5) ? formatDate(detailDialog.item.actual5) : 'Not yet' },
                 { label: 'Status', value: hasValue(detailDialog.item.actual5) ? 'Checked' : 'Pending' },
+                { label: 'Damage Qty (BD)', value: hasValue(detailDialog.item.damageQty) || hasValue(detailDialog.item.BD) || hasValue(detailDialog.item['Damage Qty']) ? (detailDialog.item.damageQty ?? detailDialog.item.BD ?? detailDialog.item['Damage Qty']) : '0' },
                 { label: 'Delay 5 (AJ)', value: hasValue(detailDialog.item.actual5) ? (detailDialog.item.delay5 === 0 ? 'On time' : `${detailDialog.item.delay5} day(s)`) : '—' },
                 { label: 'Updated By', value: detailDialog.item.updatedBy || '—' },
               ].map((row) => (

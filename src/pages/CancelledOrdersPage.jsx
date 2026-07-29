@@ -15,27 +15,21 @@ import {
   Layers
 } from 'lucide-react';
 
+import { formatDisplayDate } from '@/utils/dateUtils';
+
 const formatDate = (val) => {
-  if (!val) return '—';
-  try {
-    const d = new Date(val);
-    if (isNaN(d)) return val;
-    return d.toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return val;
-  }
+  return formatDisplayDate(val, true);
 };
 
 export function CancelledOrdersPage() {
   const [cancelData, , loading, refetch] = useSheetData('Cancel', 'Timestamp');
+  const [fmsData] = useSheetData('FMS', 'poNumber');
   const [searchTerm, setSearchTerm] = useState('');
+
+  const fmsMap = useMemo(() => {
+    if (!Array.isArray(fmsData)) return new Map();
+    return new Map(fmsData.map(r => [String(r.poNumber || r['PO Number']).trim(), r]));
+  }, [fmsData]);
 
   const filteredData = useMemo(() => {
     if (!Array.isArray(cancelData)) return [];
@@ -175,6 +169,12 @@ export function CancelledOrdersPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-right">
                     Total Quantity
                   </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-right">
+                    Pending Quantity
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-right">
+                    Total Canceled Qty
+                  </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left pl-6">
                     Stage Name
                   </TableHead>
@@ -186,7 +186,7 @@ export function CancelledOrdersPage() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-16 text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="py-16 text-center text-muted-foreground">
                       <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 opacity-50" />
                       Loading canceled records…
                     </TableCell>
@@ -200,6 +200,10 @@ export function CancelledOrdersPage() {
                     const totQty = Number(item['Total Quantity'] || item.totalQuantity || 0);
                     const stage = item['Stage Name'] || item.stageName || '—';
                     const canQty = Number(item['Cancel Qty'] || item.cancelQty || 0);
+
+                    const fmsRow = fmsMap.get(String(po).trim());
+                    const pendingQty = fmsRow ? (fmsRow['Pending Qty'] ?? fmsRow.pendingQty ?? 0) : (item['Pending Qty'] ?? item.pendingQty ?? 0);
+                    const totalCanceledQty = fmsRow ? (fmsRow['Cancel Qty'] ?? fmsRow.cancelQty ?? 0) : (item['Cancel Qty'] ?? item.cancelQty ?? 0);
 
                     return (
                       <TableRow key={idx} className="hover:bg-accent/40 border-b border-border transition-colors">
@@ -218,6 +222,12 @@ export function CancelledOrdersPage() {
                         <TableCell className="py-4 text-right text-xs sm:text-sm font-medium text-foreground">
                           {totQty ? totQty.toLocaleString() : '—'}
                         </TableCell>
+                        <TableCell className="py-4 text-right text-xs sm:text-sm font-semibold text-foreground">
+                          {pendingQty != null && pendingQty !== '' ? Number(pendingQty).toLocaleString() : '0'}
+                        </TableCell>
+                        <TableCell className="py-4 text-right text-xs sm:text-sm font-semibold text-foreground">
+                          {totalCanceledQty != null && totalCanceledQty !== '' ? Number(totalCanceledQty).toLocaleString() : '0'}
+                        </TableCell>
                         <TableCell className="py-4 text-left pl-6">
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-900/40">
                             <Layers className="h-2.5 w-2.5" />
@@ -234,7 +244,7 @@ export function CancelledOrdersPage() {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-16 text-center">
+                    <TableCell colSpan={9} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-rose-500/10 rounded-full">
                           <XCircle className="h-8 w-8 text-rose-500/60" />

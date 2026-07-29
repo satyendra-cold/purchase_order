@@ -29,44 +29,17 @@ import {
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { CancelOrderDialog } from '@/components/shared/CancelOrderDialog';
+import { makeTimestamp, formatDisplayDate, hasValue } from '@/utils/dateUtils';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
 const formatDate = (isoString) => {
-  if (!isoString) return '—';
-  try {
-    return new Date(isoString).toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return isoString;
-  }
+  return formatDisplayDate(isoString, true);
 };
 
 const formatAmount = (amount) => {
-  if (amount == null || isNaN(amount)) return '—';
+  if (amount == null || isNaN(amount) || amount === '') return '—';
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
-};
-
-const calcDelayDays = (plannedISO, actualISO) => {
-  if (!plannedISO || !actualISO) return 0;
-  const planned = new Date(plannedISO);
-  const actual = new Date(actualISO);
-  const diffMs = actual.getTime() - planned.getTime();
-  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
-};
-
-const hasValue = (val) => val != null && String(val).trim() !== '';
-
-const makeTimestamp = () => {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 };
 
 const TABS = [
@@ -689,17 +662,12 @@ export function PrintInvoicePage() {
                 <span className="font-medium">{formatAmount(confirmDialog.item.billAmount)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Planned 4 (AE)</span>
+                <span className="text-muted-foreground">Planned Date</span>
                 <span className="font-medium">{formatDate(confirmDialog.item.planned4)}</span>
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Processed By</span>
                 <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
-              </div>
-              <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5" />This action will write Actual 4 (col AF) to the FMS sheet.
-                </p>
               </div>
             </div>
           )}

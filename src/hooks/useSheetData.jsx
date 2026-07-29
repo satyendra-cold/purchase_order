@@ -10,9 +10,23 @@ const isReadOnlyField = (h) =>
 // Read-only fields (planned*, delay*) are always sent as '' so the sheet formula
 // is never overwritten.
 function toRow(headers, item) {
-  return headers.map(h => {
+  return headers.map((h, idx) => {
     if (isReadOnlyField(h)) return ''; // never overwrite sheet-computed columns
-    const v = item[h];
+    let v = item[h];
+    if (v === undefined) {
+      if (h === 'Serial No') v = item.serialNo;
+      else if (h === 'PO Number') v = item.poNumber;
+      else if (h === 'Vendor Name') v = item.vendorName;
+      else if (h === 'Total Quantity') v = item.totalQuantity;
+      else if (h === 'Location') v = item.location;
+      else if (h === 'Address') v = item.address;
+      else if (h === 'Created By') v = item.createdBy;
+      else if (h === 'PO Received Date') v = item.poReceivedDate;
+      else if (h === 'PO Expired Date') v = item.poExpiredDate;
+      else if (h === 'PO PDF') v = item.poPdfName || item.poPdfUrl || item.poPdf;
+      else if (idx === 54 || h === 'BC' || h === 'Narration' || h === 'narration') v = item.narration ?? item.narretion ?? item.BC ?? '';
+      else if (idx === 55 || h === 'BD' || h === 'Damage Qty' || h === 'damageQty') v = item.damageQty ?? item.BD ?? '';
+    }
     if (Array.isArray(v)) return JSON.stringify(v);
     return v != null ? String(v) : '';
   });
@@ -30,23 +44,64 @@ function stripReadOnly(obj) {
   );
 }
 
-function diff(oldArr, newArr, keyField) {
-  const oldMap = new Map(oldArr.map(x => [String(x[keyField]), x]));
-  const newKeys = new Set(newArr.map(x => String(x[keyField])));
+function getKeyVal(obj, keyField) {
+  if (!obj || !keyField) return '';
+  if (obj[keyField] != null && obj[keyField] !== '') return String(obj[keyField]);
+  
+  // Case/space/punctuation-insensitive fallback
+  const target = String(keyField).toLowerCase().replace(/[^a-z0-9]/g, '');
+  for (const [k, v] of Object.entries(obj)) {
+    if (k.toLowerCase().replace(/[^a-z0-9]/g, '') === target && v != null && v !== '') {
+      return String(v);
+    }
+  }
+  return '';
+}
 
-  const inserts = newArr.filter(x => !oldMap.has(String(x[keyField])));
-  const deletes = oldArr.filter(x => !newKeys.has(String(x[keyField])));
+function normalizeRow(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    serialNo: row.serialNo ?? row['Serial No'] ?? '',
+    poNumber: row.poNumber ?? row['PO Number'] ?? '',
+    vendorName: row.vendorName ?? row['Vendor Name'] ?? '',
+    totalQuantity: row.totalQuantity ?? row['Total Quantity'] ?? '',
+    location: row.location ?? row['Location'] ?? '',
+    address: row.address ?? row['Address'] ?? '',
+    createdBy: row.createdBy ?? row['Created By'] ?? '',
+    poReceivedDate: row.poReceivedDate ?? row['PO Received Date'] ?? '',
+    poExpiredDate: row.poExpiredDate ?? row['PO Expired Date'] ?? '',
+    poPdfName: row.poPdfName ?? row['PO PDF'] ?? '',
+    deleteStatus: row.deleteStatus ?? row['Delete Status'] ?? '',
+    narretion: row.narretion ?? row['Narretion'] ?? row.narration ?? row['Narration'] ?? row.BC ?? row['BC'] ?? '',
+    narration: row.narretion ?? row['Narretion'] ?? row.narration ?? row['Narration'] ?? row.BC ?? row['BC'] ?? '',
+    supplyQuantity1: row.supplyQuantity1 ?? row['Supply Quantity 1'] ?? '',
+    receivedAmount: row.receivedAmount ?? row['Received Amount'] ?? '',
+    supplyQuantity2: row.supplyQuantity2 ?? row['Supply Quantity 2'] ?? '',
+    pendingQty: row.pendingQty ?? row['Pending Qty'] ?? '',
+    cancelQty: row.cancelQty ?? row['Cancel Qty'] ?? '',
+    damageQty: row.damageQty ?? row['Damage Qty'] ?? row['Damage Quantity'] ?? row.BD ?? row['BD'] ?? '',
+  };
+}
+
+function diff(oldArr, newArr, keyField) {
+  const oldMap = new Map(oldArr.map(x => [getKeyVal(x, keyField), x]));
+  const newKeys = new Set(newArr.map(x => getKeyVal(x, keyField)));
+
+  const inserts = newArr.filter(x => !oldMap.has(getKeyVal(x, keyField)));
+  const deletes = oldArr.filter(x => !newKeys.has(getKeyVal(x, keyField)));
 
   const updates = newArr
     .filter(x => {
-      const prev = oldMap.get(String(x[keyField]));
+      const key = getKeyVal(x, keyField);
+      const prev = oldMap.get(key);
       if (!prev) return false;
       const { _row: _a, ...a } = prev;
       const { _row: _b, ...b } = x;
       // Compare only writable fields — ignore planned*/delay* differences
       return JSON.stringify(stripReadOnly(a)) !== JSON.stringify(stripReadOnly(b));
     })
-    .map(x => ({ ...x, _row: oldMap.get(String(x[keyField]))._row }));
+    .map(x => ({ ...x, _row: oldMap.get(getKeyVal(x, keyField))._row }));
 
   return { inserts, deletes, updates };
 }
@@ -86,8 +141,9 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
       .then(({ headers: h, data: rows }) => {
         if (!alive) return;
         headers.current  = h;
-        internal.current = rows;
-        setDataState(rows.map(({ _row, ...rest }) => rest));
+        const normalizedRows = rows.map(({ _row, ...rest }) => ({ _row, ...normalizeRow(rest) }));
+        internal.current = normalizedRows;
+        setDataState(normalizedRows.map(({ _row, ...rest }) => rest));
       })
       .catch(err => console.error(`[useSheetData] ${sheetName}:`, err))
       .finally(() => { if (alive) setLoading(false); });
@@ -113,11 +169,11 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
     }
 
     const oldInternal = internal.current;
-    const oldMap = new Map(oldInternal.map(x => [String(x[keyField]), x]));
+    const oldMap = new Map(oldInternal.map(x => [getKeyVal(x, keyField), x]));
 
     // rebuild internal: carry over existing _row where available
     const newInternal = newClean.map(x => {
-      const prev = oldMap.get(String(x[keyField]));
+      const prev = oldMap.get(getKeyVal(x, keyField));
       return prev ? { ...x, _row: prev._row } : { ...x }; // new items: no _row yet
     });
 
@@ -126,7 +182,7 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
 
     // optimistic state update (UI responds instantly)
     internal.current = newInternal;
-    setDataState(newClean);
+    setDataState(newClean.map(normalizeRow));
 
     if (!headers.current.length) return; // sheet not loaded yet; skip sync
 
@@ -137,7 +193,7 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
         await deleteRow(sheetName, item._row);
         // shift _row of rows that were below the deleted one
         internal.current = internal.current
-          .filter(x => String(x[keyField]) !== String(item[keyField]))
+          .filter(x => getKeyVal(x, keyField) !== getKeyVal(item, keyField))
           .map(x => x._row > item._row ? { ...x, _row: x._row - 1 } : x);
       } catch (err) {
         console.error(`[useSheetData] delete failed in "${sheetName}":`, err);
@@ -149,10 +205,16 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
     // Only the fields that actually changed are sent. planned*/delay* are
     // always excluded (isReadOnlyField) so sheet formulas are never touched.
     for (const item of changes.updates) {
-      const prev = oldMap.get(String(item[keyField]));
+      const prev = oldMap.get(getKeyVal(item, keyField));
+      let col55Handled = false;
+      let col56Handled = false;
+
       for (let i = 0; i < headers.current.length; i++) {
         const h = headers.current[i];
         if (isReadOnlyField(h)) continue; // never write planned* or delay*
+        if (i === 54) col55Handled = true;
+        if (i === 55) col56Handled = true;
+
         const newVal = item[h] ?? '';
         const oldVal = prev ? (prev[h] ?? '') : undefined;
         // Skip fields that haven't changed
@@ -165,6 +227,28 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
           onErrorRef.current?.(`Failed to save "${h}": ${err.message}`);
         }
       }
+
+      // Fallback for Column BC (55th column) if not updated by header match
+      const bcVal = item.narration ?? item['Narration'] ?? item.BC ?? item['BC'] ?? item.narretion ?? item['Narretion'];
+      const prevBcVal = prev ? (prev.narration ?? prev['Narration'] ?? prev.BC ?? prev['BC'] ?? prev.narretion ?? prev['Narretion']) : undefined;
+      if (!col55Handled && bcVal !== undefined && String(bcVal) !== String(prevBcVal ?? '') && item._row) {
+        try {
+          await updateCell(sheetName, item._row, 55, String(bcVal));
+        } catch (err) {
+          console.error(`[useSheetData] updateCell col 55 (BC) failed in "${sheetName}":`, err);
+        }
+      }
+
+      // Fallback for Column BD (56th column) if not updated by header match
+      const bdVal = item.damageQty ?? item['Damage Qty'] ?? item['Damage Quantity'] ?? item.BD ?? item['BD'];
+      const prevBdVal = prev ? (prev.damageQty ?? prev['Damage Qty'] ?? prev['Damage Quantity'] ?? prev.BD ?? prev['BD']) : undefined;
+      if (!col56Handled && bdVal !== undefined && String(bdVal) !== String(prevBdVal ?? '') && item._row) {
+        try {
+          await updateCell(sheetName, item._row, 56, String(bdVal));
+        } catch (err) {
+          console.error(`[useSheetData] updateCell col 56 (BD) failed in "${sheetName}":`, err);
+        }
+      }
     }
 
     // ── inserts (appended to the end of the sheet) ─────────────────────────
@@ -175,7 +259,7 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
         // assign the new sheet row to the in-memory item
         const assignedRow = nextRow++;
         internal.current = internal.current.map(x =>
-          !x._row && String(x[keyField]) === String(item[keyField])
+          !x._row && getKeyVal(x, keyField) === getKeyVal(item, keyField)
             ? { ...x, _row: assignedRow }
             : x
         );
@@ -206,12 +290,12 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
       typeof valueOrUpdater === 'function'
         ? valueOrUpdater(dataRef.current)
         : valueOrUpdater;
-    const oldMap = new Map(internal.current.map(x => [String(x[keyField]), x]));
+    const oldMap = new Map(internal.current.map(x => [getKeyVal(x, keyField), x]));
     internal.current = newClean.map(x => {
-      const prev = oldMap.get(String(x[keyField]));
+      const prev = oldMap.get(getKeyVal(x, keyField));
       return prev ? { ...x, _row: prev._row } : { ...x };
     });
-    setDataState(newClean);
+    setDataState(newClean.map(normalizeRow));
   }, [keyField]);
 
   // ── patchItem: write specific fields directly to sheet ────────────────────

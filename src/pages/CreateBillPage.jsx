@@ -3,6 +3,7 @@ import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useSheetData } from '@/hooks/useSheetData';
 import { uploadFile } from '@/services/api';
+import { makeTimestamp, formatDisplayDate, formatToTimestamp, isValidDate } from '@/utils/dateUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,50 +35,9 @@ import { CancelOrderDialog } from '@/components/shared/CancelOrderDialog';
 
 // ─── Helpers ────────────────────────────────────────────────────────
 
-/** Format ISO string → human-readable date string */
+/** Format ISO/timestamp string → DD-MM-YYYY HH:mm:ss date string */
 const formatDate = (isoString) => {
-  if (!isoString) return '—';
-  try {
-    const d = new Date(isoString);
-    // Reject Excel epoch glitches (year < 1990)
-    if (isNaN(d) || d.getFullYear() < 1990) return isoString;
-    return d.toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  } catch {
-    return isoString;
-  }
-};
-
-/** Check if a value is not null and not empty */
-const isValidDate = (val) => {
-  return val != null && String(val).trim() !== '';
-};
-
-/** Make a timestamp string in M/D/YYYY H:mm:ss format — same as FMS sheet */
-const makeTimestamp = () => {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-};
-
-/** Convert a date string (e.g. YYYY-MM-DD) into M/D/YYYY H:mm:ss format */
-const formatToTimestamp = (dateVal) => {
-  if (!dateVal) return '';
-  const match = String(dateVal).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (match) {
-    const [_, year, month, day] = match;
-    return `${parseInt(month, 10)}/${parseInt(day, 10)}/${year} 00:00:00`;
-  }
-  const d = new Date(dateVal);
-  if (isNaN(d)) return dateVal;
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  return formatDisplayDate(isoString, true);
 };
 
 const formatAmount = (amount) => {
@@ -121,6 +81,9 @@ export function CreateBillPage() {
   const [createBillDialog, setCreateBillDialog] = useState({ open: false, row: null });
   const [billAmountInput, setBillAmountInput] = useState('');
   const [billDateInput, setBillDateInput] = useState('');
+  const [receivedAmountInput, setReceivedAmountInput] = useState('');
+  const [supplyQuantity2Input, setSupplyQuantity2Input] = useState('');
+  const [narrationInput, setNarrationInput] = useState('');
   const [billPdfFile, setBillPdfFile] = useState(null);
   const [billPdfNameInput, setBillPdfNameInput] = useState('');
   const [isUploadingPdf, setIsUploadingPdf] = useState(false);
@@ -379,6 +342,9 @@ export function CreateBillPage() {
       }
     }
 
+    const parsedReceived = receivedAmountInput !== '' ? parseFloat(receivedAmountInput) : '';
+    const parsedSupply2 = supplyQuantity2Input !== '' ? parseFloat(supplyQuantity2Input) : '';
+
     const updatedFms = fmsData.map((r) =>
       r.poNumber === row.poNumber
         ? {
@@ -387,6 +353,14 @@ export function CreateBillPage() {
           billAmount: amount,
           billDate: billDateInput,
           billPdf: billPdfUrl,
+          'Received Amount': parsedReceived,
+          'Supply Quantity 2': parsedSupply2,
+          'Narretion': narrationInput,
+          narretion: narrationInput,
+          'Narration': narrationInput,
+          narration: narrationInput,
+          'BC': narrationInput,
+          BC: narrationInput,
           actual1: makeTimestamp(), // set actual1 in M/D/YYYY H:mm:ss format immediately
         }
         : r
@@ -543,32 +517,60 @@ export function CreateBillPage() {
                     Vendor
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                    PO Quantity
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                    Pending Quantity
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                    Canceled Quantity
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                    Narretion
+                  </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Location
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Planned
                   </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Bill Number
+                    Supply Quantity
                   </TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Bill Amount
-                  </TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Bill Date
-                  </TableHead>
+                  {activeTab === 'history' && (
+                    <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                      Bill Number
+                    </TableHead>
+                  )}
+                  {activeTab === 'history' && (
+                    <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                      Bill Amount
+                    </TableHead>
+                  )}
+                  {activeTab === 'history' && (
+                    <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                      Received Amount
+                    </TableHead>
+                  )}
+                  {activeTab === 'history' && (
+                    <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                      Bill Date
+                    </TableHead>
+                  )}
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
                     Status
                   </TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
-                    Bill PDF
-                  </TableHead>
+                  {activeTab === 'history' && (
+                    <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">
+                      Bill PDF
+                    </TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {fmsLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-16 text-center text-muted-foreground text-sm">
+                    <TableCell colSpan={activeTab === 'history' ? 16 : 11} className="py-16 text-center text-muted-foreground text-sm">
                       Loading…
                     </TableCell>
                   </TableRow>
@@ -592,6 +594,9 @@ export function CreateBillPage() {
                                 onClick={() => {
                                   setBillAmountInput('');
                                   setBillDateInput(new Date().toISOString().split('T')[0]);
+                                  setReceivedAmountInput('');
+                                  setSupplyQuantity2Input('');
+                                  setNarrationInput(row.narration || row['Narration'] || row.narretion || row['Narretion'] || row.BC || row['BC'] || '');
                                   setBillPdfFile(null);
                                   setBillPdfNameInput('');
                                   setCreateBillDialog({ open: true, row });
@@ -645,6 +650,30 @@ export function CreateBillPage() {
                           {row.vendorName}
                         </TableCell>
 
+                        {/* PO Quantity */}
+                        <TableCell className="py-4 text-left font-bold text-xs sm:text-sm text-foreground">
+                          {Number(row.totalQuantity || row['Total Quantity'] || 0).toLocaleString()}
+                        </TableCell>
+
+                        {/* Pending Quantity (Col AV) */}
+                        <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
+                          {(row['Pending Qty'] != null && row['Pending Qty'] !== '')
+                            ? Number(row['Pending Qty']).toLocaleString()
+                            : (row.pendingQty != null && row.pendingQty !== '' ? Number(row.pendingQty).toLocaleString() : '0')}
+                        </TableCell>
+
+                        {/* Canceled Quantity (Col AW) */}
+                        <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
+                          {(row['Cancel Qty'] != null && row['Cancel Qty'] !== '')
+                            ? Number(row['Cancel Qty']).toLocaleString()
+                            : (row.cancelQty != null && row.cancelQty !== '' ? Number(row.cancelQty).toLocaleString() : '0')}
+                        </TableCell>
+
+                        {/* Narretion */}
+                        <TableCell className="py-4 text-left text-xs text-muted-foreground max-w-[150px] truncate" title={row.narretion || row['Narretion'] || ''}>
+                          {row.narretion || row['Narretion'] || '—'}
+                        </TableCell>
+
                         {/* Location */}
                         <TableCell className="py-4 text-left">
                           <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
@@ -658,20 +687,47 @@ export function CreateBillPage() {
                           {isValidDate(row.planned1) ? formatDate(row.planned1) : '—'}
                         </TableCell>
 
-                        {/* Bill Number */}
+                        {/* Supply Quantity (AZ for pending, BB for history) */}
                         <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
-                          {row.billNumber || '-'}
+                          {activeTab === 'history'
+                            ? ((row['Supply Quantity 2'] != null && row['Supply Quantity 2'] !== '')
+                                ? Number(row['Supply Quantity 2']).toLocaleString()
+                                : (row.supplyQuantity2 != null && row.supplyQuantity2 !== '' ? Number(row.supplyQuantity2).toLocaleString() : '—'))
+                            : ((row['Supply Quantity 1'] != null && row['Supply Quantity 1'] !== '')
+                                ? Number(row['Supply Quantity 1']).toLocaleString()
+                                : (row.supplyQuantity1 != null && row.supplyQuantity1 !== '' ? Number(row.supplyQuantity1).toLocaleString() : '—'))
+                          }
                         </TableCell>
 
-                        {/* Bill Amount */}
-                        <TableCell className="py-4 text-left text-xs sm:text-sm text-foreground">
-                          {formatAmount(row.billAmount)}
-                        </TableCell>
+                        {/* Bill Number (History section only) */}
+                        {activeTab === 'history' && (
+                          <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
+                            {row.billNumber || '-'}
+                          </TableCell>
+                        )}
 
-                        {/* Bill Date */}
-                        <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
-                          {row.billDate || '-'}
-                        </TableCell>
+                        {/* Bill Amount (History section only) */}
+                        {activeTab === 'history' && (
+                          <TableCell className="py-4 text-left text-xs sm:text-sm text-foreground">
+                            {formatAmount(row.billAmount)}
+                          </TableCell>
+                        )}
+
+                        {/* Received Amount (History section only) */}
+                        {activeTab === 'history' && (
+                          <TableCell className="py-4 text-left text-xs sm:text-sm text-foreground font-medium">
+                            {(row['Received Amount'] != null && row['Received Amount'] !== '')
+                              ? formatAmount(row['Received Amount'])
+                              : (row.receivedAmount != null && row.receivedAmount !== '' ? formatAmount(row.receivedAmount) : '—')}
+                          </TableCell>
+                        )}
+
+                        {/* Bill Date (History section only) */}
+                        {activeTab === 'history' && (
+                          <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+                            {formatDisplayDate(row.billDate, false)}
+                          </TableCell>
+                        )}
 
                         {/* Status Badge */}
                         <TableCell className="py-4 text-left">
@@ -688,35 +744,37 @@ export function CreateBillPage() {
                           )}
                         </TableCell>
 
-                        {/* Bill PDF */}
-                        <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
-                          {row.billPdf ? (
-                            String(row.billPdf).startsWith('http') ? (
-                              <a
-                                href={row.billPdf}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                              >
-                                <FilePlus2 className="h-3.5 w-3.5" />
-                                View PDF
-                              </a>
+                        {/* Bill PDF (History section only) */}
+                        {activeTab === 'history' && (
+                          <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+                            {row.billPdf ? (
+                              String(row.billPdf).startsWith('http') ? (
+                                <a
+                                  href={row.billPdf}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
+                                >
+                                  <FilePlus2 className="h-3.5 w-3.5" />
+                                  View PDF
+                                </a>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 font-medium text-primary">
+                                  <FilePlus2 className="h-3.5 w-3.5" />
+                                  {row.billPdf}
+                                </span>
+                              )
                             ) : (
-                              <span className="inline-flex items-center gap-1 font-medium text-primary">
-                                <FilePlus2 className="h-3.5 w-3.5" />
-                                {row.billPdf}
-                              </span>
-                            )
-                          ) : (
-                            '-'
-                          )}
-                        </TableCell>
+                              '-'
+                            )}
+                          </TableCell>
+                        )}
                       </TableRow>
                     );
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-16 text-center">
+                    <TableCell colSpan={activeTab === 'history' ? 12 : 11} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-primary/5 rounded-full">
                           <Receipt className="h-8 w-8 text-primary/40" />
@@ -782,12 +840,6 @@ export function CreateBillPage() {
                 <span className="text-muted-foreground">Processed By</span>
                 <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
               </div>
-              <div className="mt-2 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                <p className="text-[11px] text-amber-700 dark:text-amber-300 font-medium flex items-center gap-1.5">
-                  <AlertCircle className="h-3.5 w-3.5" />
-                  This will write the completion date to Actual 1 (col M) in the FMS sheet.
-                </p>
-              </div>
             </div>
           )}
 
@@ -848,7 +900,7 @@ export function CreateBillPage() {
                 />
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 text-left">
                 <Label className="text-xs font-semibold text-muted-foreground">Bill Date*</Label>
                 <Input
                   type="date"
@@ -856,6 +908,41 @@ export function CreateBillPage() {
                   onChange={(e) => setBillDateInput(e.target.value)}
                   className="rounded-xl bg-background border-input text-xs h-10"
                   required
+                />
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <Label className="text-xs font-semibold text-muted-foreground">Receive Amount</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={receivedAmountInput}
+                  onChange={(e) => setReceivedAmountInput(e.target.value)}
+                  placeholder="e.g. 45000"
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <Label className="text-xs font-semibold text-muted-foreground">Supply Quantity</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  value={supplyQuantity2Input}
+                  onChange={(e) => setSupplyQuantity2Input(e.target.value)}
+                  placeholder="e.g. 200"
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <Label className="text-xs font-semibold text-muted-foreground">Narration</Label>
+                <Input
+                  value={narrationInput}
+                  onChange={(e) => setNarrationInput(e.target.value)}
+                  placeholder="e.g. Bill narration details"
+                  className="rounded-xl bg-background border-input text-xs h-10"
                 />
               </div>
 
@@ -921,12 +1008,16 @@ export function CreateBillPage() {
                 { label: 'PO Number', value: detailDialog.row.poNumber },
                 { label: 'Vendor', value: detailDialog.row.vendorName },
                 { label: 'Quantity', value: Number(detailDialog.row.totalQuantity || 0).toLocaleString() },
+                { label: 'Narretion', value: detailDialog.row['Narretion'] || detailDialog.row.narretion || '—' },
+                { label: 'Supply Quantity 1', value: detailDialog.row['Supply Quantity 1'] != null && detailDialog.row['Supply Quantity 1'] !== '' ? Number(detailDialog.row['Supply Quantity 1']).toLocaleString() : '—' },
                 { label: 'Location', value: detailDialog.row.location },
                 { label: 'Address', value: detailDialog.row.address },
                 { label: 'PO Received Date', value: detailDialog.row.poReceivedDate || '—' },
                 { label: 'Bill Number', value: detailDialog.row.billNumber || '-' },
                 { label: 'Bill Amount', value: formatAmount(detailDialog.row.billAmount) },
                 { label: 'Bill Date', value: detailDialog.row.billDate || '-' },
+                { label: 'Received Amount', value: detailDialog.row['Received Amount'] != null && detailDialog.row['Received Amount'] !== '' ? formatAmount(detailDialog.row['Received Amount']) : '—' },
+                { label: 'Supply Quantity 2', value: detailDialog.row['Supply Quantity 2'] != null && detailDialog.row['Supply Quantity 2'] !== '' ? Number(detailDialog.row['Supply Quantity 2']).toLocaleString() : '—' },
                 { label: 'PO PDF', value: detailDialog.row.poPdfName || '-' },
                 { label: 'Bill PDF', value: detailDialog.row.billPdf || '-' },
                 { label: 'Planned 1 (Col L)', value: isValidDate(detailDialog.row.planned1) ? formatDate(detailDialog.row.planned1) : '—' },
