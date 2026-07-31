@@ -5,7 +5,6 @@ const isReadOnlyField = (h) =>
   /^planned\d*$/i.test(h) ||
   /^delay\d*$/i.test(h);
 
-<<<<<<< HEAD
 function getValueForHeader(item, h) {
   if (!item) return '';
   if (item[h] !== undefined && item[h] !== null) return item[h];
@@ -100,8 +99,6 @@ function getValueForHeader(item, h) {
   return '';
 }
 
-=======
->>>>>>> origin/main
 // Convert an object to a flat row array in the order defined by the sheet headers.
 // Arrays (e.g. pageAccess) are JSON-serialised so they survive a round-trip.
 // Read-only fields (planned*, delay*) are always sent as '' so the sheet formula
@@ -109,27 +106,9 @@ function getValueForHeader(item, h) {
 function toRow(headers, item) {
   return headers.map((h, idx) => {
     if (isReadOnlyField(h)) return ''; // never overwrite sheet-computed columns
-<<<<<<< HEAD
     let v = getValueForHeader(item, h);
     if (idx === 54 && (!v || h === 'BC')) v = item.narration ?? item.narretion ?? item.BC ?? item['Narration'] ?? '';
     if (idx === 55 && (!v || h === 'BD')) v = item.damageQty ?? item.BD ?? item['Damage Qty'] ?? '';
-=======
-    let v = item[h];
-    if (v === undefined) {
-      if (h === 'Serial No') v = item.serialNo;
-      else if (h === 'PO Number') v = item.poNumber;
-      else if (h === 'Vendor Name') v = item.vendorName;
-      else if (h === 'Total Quantity') v = item.totalQuantity;
-      else if (h === 'Location') v = item.location;
-      else if (h === 'Address') v = item.address;
-      else if (h === 'Created By') v = item.createdBy;
-      else if (h === 'PO Received Date') v = item.poReceivedDate;
-      else if (h === 'PO Expired Date') v = item.poExpiredDate;
-      else if (h === 'PO PDF') v = item.poPdfName || item.poPdfUrl || item.poPdf;
-      else if (idx === 54 || h === 'BC' || h === 'Narration' || h === 'narration') v = item.narration ?? item.narretion ?? item.BC ?? '';
-      else if (idx === 55 || h === 'BD' || h === 'Damage Qty' || h === 'damageQty') v = item.damageQty ?? item.BD ?? '';
-    }
->>>>>>> origin/main
     if (Array.isArray(v)) return JSON.stringify(v);
     return v != null ? String(v) : '';
   });
@@ -163,7 +142,6 @@ function getKeyVal(obj, keyField) {
 
 function normalizeRow(row) {
   if (!row) return row;
-<<<<<<< HEAD
   const tName = row.transporterName ?? row['Transporter name'] ?? row['Transporter Name'] ?? row['Transporter'] ?? '';
   const vNum = row.vehicleNumber ?? row['Vehicle Number'] ?? row['Vehicle number'] ?? '';
   const dLoc = row.deliveryLocation ?? row['Delivery Location'] ?? row['Delivery location'] ?? '';
@@ -215,34 +193,15 @@ function normalizeRow(row) {
     'Delete Status': dStatus,
     deliveredQty: row.deliveredQty ?? row['Delivered Qty'] ?? '',
     'Delivered Qty': row.deliveredQty ?? row['Delivered Qty'] ?? '',
-=======
-  return {
-    ...row,
-    serialNo: row.serialNo ?? row['Serial No'] ?? '',
-    poNumber: row.poNumber ?? row['PO Number'] ?? '',
-    vendorName: row.vendorName ?? row['Vendor Name'] ?? '',
-    totalQuantity: row.totalQuantity ?? row['Total Quantity'] ?? '',
-    location: row.location ?? row['Location'] ?? '',
-    address: row.address ?? row['Address'] ?? '',
-    createdBy: row.createdBy ?? row['Created By'] ?? '',
-    poReceivedDate: row.poReceivedDate ?? row['PO Received Date'] ?? '',
-    poExpiredDate: row.poExpiredDate ?? row['PO Expired Date'] ?? '',
-    poPdfName: row.poPdfName ?? row['PO PDF'] ?? '',
-    deleteStatus: row.deleteStatus ?? row['Delete Status'] ?? '',
->>>>>>> origin/main
     narretion: row.narretion ?? row['Narretion'] ?? row.narration ?? row['Narration'] ?? row.BC ?? row['BC'] ?? '',
     narration: row.narretion ?? row['Narretion'] ?? row.narration ?? row['Narration'] ?? row.BC ?? row['BC'] ?? '',
     supplyQuantity1: row.supplyQuantity1 ?? row['Supply Quantity 1'] ?? '',
     receivedAmount: row.receivedAmount ?? row['Received Amount'] ?? '',
     supplyQuantity2: row.supplyQuantity2 ?? row['Supply Quantity 2'] ?? '',
     pendingQty: row.pendingQty ?? row['Pending Qty'] ?? '',
-<<<<<<< HEAD
     'Pending Qty': row.pendingQty ?? row['Pending Qty'] ?? '',
     cancelQty: row.cancelQty ?? row['Cancel Qty'] ?? '',
     'Cancel Qty': row.cancelQty ?? row['Cancel Qty'] ?? '',
-=======
-    cancelQty: row.cancelQty ?? row['Cancel Qty'] ?? '',
->>>>>>> origin/main
     damageQty: row.damageQty ?? row['Damage Qty'] ?? row['Damage Quantity'] ?? row.BD ?? row['BD'] ?? '',
   };
 }
@@ -378,13 +337,8 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
         if (i === 54) col55Handled = true;
         if (i === 55) col56Handled = true;
 
-<<<<<<< HEAD
         const newVal = getValueForHeader(item, h);
         const oldVal = prev ? getValueForHeader(prev, h) : undefined;
-=======
-        const newVal = item[h] ?? '';
-        const oldVal = prev ? (prev[h] ?? '') : undefined;
->>>>>>> origin/main
         // Skip fields that haven't changed
         if (oldVal !== undefined && String(newVal) === String(oldVal)) continue;
         const cellValue = Array.isArray(newVal) ? JSON.stringify(newVal) : String(newVal);

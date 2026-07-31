@@ -83,7 +83,6 @@ const SHEET_CONFIGS = {
             'Actual 3': 'actual3',
             'Delay 3': 'delay3',
             'Transporter name': 'transporterName',
-<<<<<<< HEAD
             'Transporter Name': 'transporterName',
             'Transporter': 'transporterName',
             'Vehicle Number': 'vehicleNumber',
@@ -94,11 +93,6 @@ const SHEET_CONFIGS = {
             'Delivery Location': 'deliveryLocation',
             'Delivery address': 'deliveryAddress',
             'Delivery Address': 'deliveryAddress',
-=======
-            'Quantity': 'quantity',
-            'Delivery location': 'deliveryLocation',
-            'Delivery address': 'deliveryAddress',
->>>>>>> origin/main
             'Planned 4': 'planned4',
             'Actual 4': 'actual4',
             'Delay 4': 'delay4',
@@ -114,7 +108,6 @@ const SHEET_CONFIGS = {
             'Total Paid': 'totalPaid',
             'Balance Due': 'balanceDue',
             'Payment Status': 'paymentStatus',
-<<<<<<< HEAD
             'Delete Status': 'deleteStatus',
             'Delivered Qty': 'deliveredQty',
             'Pending Qty': 'pendingQty',
@@ -125,9 +118,7 @@ const SHEET_CONFIGS = {
             'Received Amount': 'receivedAmount',
             'Supply Quantity 2': 'supplyQuantity2',
             'Damage Qty': 'damageQty',
-=======
             'Payment History': 'paymentHistory',
->>>>>>> origin/main
         }
     },
     'Login': {

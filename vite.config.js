@@ -5,7 +5,6 @@ import path from 'path'
 import https from 'https'
 import http from 'http'
 
-<<<<<<< HEAD
 // GET from Apps Script → Google returns 302 → we follow redirect → JSON response
 function proxyGet(targetUrl) {
   return new Promise((resolve, reject) => {
@@ -36,8 +35,6 @@ function proxyGet(targetUrl) {
   })
 }
 
-=======
->>>>>>> origin/main
 // POST to Apps Script → Google returns 302 → we follow as GET to echo URL → JSON response
 function proxyPost(targetUrl, contentType, body) {
   return new Promise((resolve, reject) => {
@@ -89,7 +86,6 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
-<<<<<<< HEAD
       // Server-side GET & POST proxies — avoids CORS issues in dev
       {
         name: 'apps-script-proxy',
@@ -136,12 +132,6 @@ export default defineConfig(({ mode }) => {
                 res.end(JSON.stringify({ success: false, error: err.message }))
               })
           })
-=======
-      // Server-side POST proxy — avoids CORS for file uploads in dev
-      {
-        name: 'apps-script-post-proxy',
-        configureServer(server) {
->>>>>>> origin/main
           server.middlewares.use('/api/upload', (req, res) => {
             if (req.method !== 'POST') {
               res.statusCode = 405
