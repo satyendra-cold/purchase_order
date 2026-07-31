@@ -7,11 +7,18 @@ function parseJSON(text) {
   catch { throw new Error('Invalid response from server'); }
 }
 
+<<<<<<< HEAD
 // ── GET fetch (routed through /api/read to eliminate browser CORS 302 redirects) ──
 async function getParams(params) {
   const qs = new URLSearchParams(params).toString();
   const url = `/api/read?${qs}`;
   const res = await fetch(url);
+=======
+// ── GET fetch (no CORS issues) ─────────────────────────────────────────────
+async function getParams(params) {
+  const qs = new URLSearchParams(params).toString();
+  const res = await fetch(`${SCRIPT_URL}?${qs}`);
+>>>>>>> origin/main
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
   const json = parseJSON(await res.text());
   if (!json.success) throw new Error(json.error || 'Request failed');
@@ -36,7 +43,11 @@ async function postParams(params) {
 
 // ── Sheet read ─────────────────────────────────────────────────────────────
 export async function fetchSheet(sheetName) {
+<<<<<<< HEAD
   const url = `/api/read?sheet=${encodeURIComponent(sheetName)}`;
+=======
+  const url = `${SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}`;
+>>>>>>> origin/main
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch "${sheetName}": ${res.status}`);
   const json = await res.json();

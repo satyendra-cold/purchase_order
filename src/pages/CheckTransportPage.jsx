@@ -45,8 +45,13 @@ const formatDate = (isoString) => {
 };
 
 const TABS = [
+<<<<<<< HEAD
   { key: 'pending', label: 'Pending' },
   { key: 'history', label: 'History' },
+=======
+  { key: 'pending',   label: 'Pending' },
+  { key: 'history',   label: 'History' },
+>>>>>>> origin/main
 ];
 
 // ─── Component ──────────────────────────────────────────────────────
@@ -56,7 +61,11 @@ export function CheckTransportPage() {
   const { toast } = useToast();
 
   // FMS is the single source of truth — same as ReadyProductPage / CreateBillPage
+<<<<<<< HEAD
   const [fmsData, setFmsData, fmsLoading] = useSheetData('FMS', 'poNumber');
+=======
+  const [fmsData, setFmsData] = useSheetData('FMS', 'poNumber');
+>>>>>>> origin/main
 
   // Locations & Transporters from master sheet
   const [locationData] = useSheetData('Locations', 'name');
@@ -64,6 +73,7 @@ export function CheckTransportPage() {
   const [transporters] = useSheetData('Transporters', 'id');
 
   // UI state
+<<<<<<< HEAD
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('pending');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
@@ -95,6 +105,30 @@ export function CheckTransportPage() {
     const pendingNum = (rawPending != null && rawPending !== '' && !isNaN(Number(rawPending)) && Number(rawPending) > 0) ? Number(rawPending) : null;
     const totalNum = Number(item.totalQuantity || item['Total Quantity'] || item.quantity || item['Quantity'] || 0);
     const maxAllowedQty = pendingNum ?? (totalNum > 0 ? totalNum : 999999999);
+=======
+  const [searchTerm, setSearchTerm]     = useState('');
+  const [activeTab, setActiveTab]       = useState('pending');
+  const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
+  const [detailDialog, setDetailDialog]   = useState({ open: false, item: null });
+  const [cancelDialog, setCancelDialog]   = useState({ open: false, item: null });
+
+  // Confirm dialog form fields
+  const [transporterName, setTransporterName] = useState('');
+  const [editQuantity,    setEditQuantity]    = useState('');
+  const [editLocation,    setEditLocation]    = useState('');
+  const [editAddress,     setEditAddress]     = useState('');
+
+  // ── Pending   = planned3 (col W) NOT null  AND  actual3 (col X) IS empty
+  // ── Completed = planned3 (col W) NOT null  AND  actual3 (col X) NOT empty
+  const isPending   = (row) => hasValue(row.planned3) && !hasValue(row.actual3);
+  const isCompleted = (row) => hasValue(row.planned3) &&  hasValue(row.actual3);
+
+  // ── Mark transport as verified ─────────────────────────────────────
+  const handleMarkComplete = (item) => {
+    const enteredQty = parseInt(editQuantity, 10);
+    const rawPending = item['Pending Qty'] ?? item.pendingQty;
+    const maxAllowedQty = (rawPending != null && rawPending !== '') ? Number(rawPending) : Number(item.totalQuantity || item.quantity || 0);
+>>>>>>> origin/main
 
     if (isNaN(enteredQty) || enteredQty <= 0) {
       toast('Please enter a valid quantity greater than 0', 'error');
@@ -102,6 +136,7 @@ export function CheckTransportPage() {
     }
 
     if (enteredQty > maxAllowedQty) {
+<<<<<<< HEAD
       toast(`Quantity cannot exceed maximum allowed quantity (${maxAllowedQty.toLocaleString()})`, 'error');
       return;
     }
@@ -113,12 +148,16 @@ export function CheckTransportPage() {
 
     if (!editAddress || !editAddress.trim()) {
       toast('Please enter a delivery address', 'error');
+=======
+      toast(`Quantity cannot exceed pending quantity (${maxAllowedQty.toLocaleString()})`, 'error');
+>>>>>>> origin/main
       return;
     }
 
     const nowTimestamp = makeTimestamp(); // M/D/YYYY H:mm:ss format
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
 
+<<<<<<< HEAD
     const selectedTransporter = transporterName.trim();
     const updated = fmsData.map((r) =>
       r.poNumber === item.poNumber
@@ -140,6 +179,19 @@ export function CheckTransportPage() {
           'Delivery Address': editAddress.trim(),
           updatedBy: userName,
         }
+=======
+    const updated = fmsData.map((r) =>
+      r.poNumber === item.poNumber
+        ? {
+            ...r,
+            actual3:          nowTimestamp,
+            transporterName:  transporterName.trim(),
+            quantity:         enteredQty,
+            deliveryLocation: editLocation,
+            deliveryAddress:  editAddress.trim(),
+            updatedBy:        userName,
+          }
+>>>>>>> origin/main
         : r
     );
     setFmsData(updated);
@@ -152,21 +204,36 @@ export function CheckTransportPage() {
 
   // ── Filtered & searched list ───────────────────────────────────────
   const filteredItems = useMemo(() => {
+<<<<<<< HEAD
     // Only show rows that belong to transport stage and are not deleted
     let list = fmsData.filter((r) => isStaged(r) && !isDeleted(r));
 
     if (activeTab === 'pending') list = list.filter(isPending);
+=======
+    // Only show rows that have planned3 set and are not deleted
+    let list = fmsData.filter((r) => hasValue(r.planned3) && !isDeleted(r));
+
+    if (activeTab === 'pending')   list = list.filter(isPending);
+>>>>>>> origin/main
     else if (activeTab === 'history') list = list.filter(isCompleted);
 
     if (searchTerm.trim()) {
       const q = searchTerm.toLowerCase();
       list = list.filter(
         (r) =>
+<<<<<<< HEAD
           String(r.poNumber || '').toLowerCase().includes(q) ||
           String(r.vendorName || '').toLowerCase().includes(q) ||
           String(r.location || '').toLowerCase().includes(q) ||
           String(r.transporterName || '').toLowerCase().includes(q) ||
           String(r.updatedBy || '').toLowerCase().includes(q)
+=======
+          String(r.poNumber       || '').toLowerCase().includes(q) ||
+          String(r.vendorName     || '').toLowerCase().includes(q) ||
+          String(r.location       || '').toLowerCase().includes(q) ||
+          String(r.transporterName|| '').toLowerCase().includes(q) ||
+          String(r.updatedBy      || '').toLowerCase().includes(q)
+>>>>>>> origin/main
       );
     }
     return list;
@@ -174,6 +241,7 @@ export function CheckTransportPage() {
   }, [fmsData, activeTab, searchTerm]);
 
   const counts = useMemo(() => {
+<<<<<<< HEAD
     const staged = fmsData.filter((r) => isStaged(r) && !isDeleted(r));
     const pendingCount = staged.filter(isPending).length;
     const historyCount = staged.filter(isCompleted).length;
@@ -181,6 +249,15 @@ export function CheckTransportPage() {
       all: staged.length,
       pending: pendingCount,
       history: historyCount,
+=======
+    const staged = fmsData.filter((r) => hasValue(r.planned3) && !isDeleted(r));
+    const pendingCount = staged.filter(isPending).length;
+    const historyCount = staged.filter(isCompleted).length;
+    return {
+      all:       staged.length,
+      pending:   pendingCount,
+      history:   historyCount,
+>>>>>>> origin/main
       completed: historyCount,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -261,10 +338,18 @@ export function CheckTransportPage() {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
+<<<<<<< HEAD
                   className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${activeTab === tab.key
                     ? 'bg-card text-foreground shadow-sm'
                     : 'text-muted-foreground hover:text-foreground'
                     }`}
+=======
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
+                    activeTab === tab.key
+                      ? 'bg-card text-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+>>>>>>> origin/main
                 >
                   {tab.label}
                   <span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
@@ -290,6 +375,7 @@ export function CheckTransportPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
+<<<<<<< HEAD
                 {fmsLoading ? (
                   <TableRow>
                     <TableCell colSpan={8} className="py-16 text-center">
@@ -300,6 +386,9 @@ export function CheckTransportPage() {
                     </TableCell>
                   </TableRow>
                 ) : filteredItems.length > 0 ? (
+=======
+                {filteredItems.length > 0 ? (
+>>>>>>> origin/main
                   filteredItems.map((item) => (
                     <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
                       {/* Actions */}
@@ -311,6 +400,7 @@ export function CheckTransportPage() {
                               <Button
                                 onClick={() => {
                                   const rawPending = item['Pending Qty'] ?? item.pendingQty;
+<<<<<<< HEAD
                                   const pendingNum = (rawPending != null && rawPending !== '' && !isNaN(Number(rawPending)) && Number(rawPending) > 0) ? Number(rawPending) : null;
                                   const totalNum = Number(item.totalQuantity || item['Total Quantity'] || item.quantity || item['Quantity'] || 0);
                                   const defaultQty = pendingNum ? String(pendingNum) : (totalNum > 0 ? String(totalNum) : '');
@@ -321,6 +411,13 @@ export function CheckTransportPage() {
                                   setEditQuantity(defaultQty);
                                   setEditLocation(item.deliveryLocation || item['Delivery Location'] || item['Delivery location'] || item.location || '');
                                   setEditAddress(item.deliveryAddress || item['Delivery Address'] || item['Delivery address'] || item.address || '');
+=======
+                                  const defaultQty = (rawPending != null && rawPending !== '') ? String(rawPending) : String(item.quantity || item.totalQuantity || '');
+                                  setTransporterName(item.transporterName || '');
+                                  setEditQuantity(defaultQty);
+                                  setEditLocation(item.deliveryLocation || item.location || '');
+                                  setEditAddress(item.deliveryAddress || item.address || '');
+>>>>>>> origin/main
                                   setConfirmDialog({ open: true, item });
                                 }}
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
@@ -354,8 +451,13 @@ export function CheckTransportPage() {
 
                       {/* Transporter */}
                       <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
+<<<<<<< HEAD
                         {hasValue(item.transporterName || item['Transporter name'] || item['Transporter Name'] || item['Transporter']) ? (
                           <span className="font-medium text-foreground">{item.transporterName || item['Transporter name'] || item['Transporter Name'] || item['Transporter']}</span>
+=======
+                        {hasValue(item.transporterName) ? (
+                          <span className="font-medium text-foreground">{item.transporterName}</span>
+>>>>>>> origin/main
                         ) : (
                           <span className="italic">—</span>
                         )}
@@ -457,6 +559,7 @@ export function CheckTransportPage() {
                   <Truck className="h-3 w-3" />
                   Transporter Name*
                 </Label>
+<<<<<<< HEAD
                 <select
                   value={transporterName}
                   onChange={(e) => setTransporterName(e.target.value)}
@@ -484,13 +587,31 @@ export function CheckTransportPage() {
                   placeholder="e.g. CG06GB34XX" value={vehicleNumber} onChange={(e) => setVehicleNumber(e.target.value)}
                   className="rounded-xl bg-background border-input text-xs h-9"
                 />
+=======
+                <Select value={transporterName} onValueChange={setTransporterName}>
+                  <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-9">
+                    <SelectValue placeholder="Select a transporter" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {transporters.map((t) => (
+                      <SelectItem key={t.id} value={t.name} className="text-xs focus:bg-accent cursor-pointer">
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+>>>>>>> origin/main
               </div>
 
               {(() => {
                 const rawPending = confirmDialog.item['Pending Qty'] ?? confirmDialog.item.pendingQty;
+<<<<<<< HEAD
                 const pendingNum = (rawPending != null && rawPending !== '' && !isNaN(Number(rawPending)) && Number(rawPending) > 0) ? Number(rawPending) : null;
                 const totalNum = Number(confirmDialog.item.totalQuantity || confirmDialog.item['Total Quantity'] || confirmDialog.item.quantity || confirmDialog.item['Quantity'] || 0);
                 const maxAllowedQty = pendingNum ?? (totalNum > 0 ? totalNum : 999999999);
+=======
+                const maxAllowedQty = (rawPending != null && rawPending !== '') ? Number(rawPending) : Number(confirmDialog.item.totalQuantity || confirmDialog.item.quantity || 0);
+>>>>>>> origin/main
                 return (
                   <div className="space-y-1">
                     <Label className="text-[11px] font-semibold text-muted-foreground">Quantity*</Label>
@@ -512,6 +633,7 @@ export function CheckTransportPage() {
                   <MapPin className="h-3 w-3" />
                   Delivery Location*
                 </Label>
+<<<<<<< HEAD
                 <select
                   value={editLocation}
                   onChange={(e) => setEditLocation(e.target.value)}
@@ -524,6 +646,20 @@ export function CheckTransportPage() {
                     </option>
                   ))}
                 </select>
+=======
+                <Select value={editLocation} onValueChange={setEditLocation}>
+                  <SelectTrigger className="w-full border-input rounded-xl bg-background text-left text-xs h-9">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {locations.map((loc) => (
+                      <SelectItem key={loc} value={loc} className="text-xs focus:bg-accent cursor-pointer">
+                        {loc}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+>>>>>>> origin/main
               </div>
 
               <div className="space-y-1">
@@ -578,6 +714,7 @@ export function CheckTransportPage() {
           {detailDialog.item && (
             <div className="space-y-3 py-3">
               {[
+<<<<<<< HEAD
                 { label: 'PO Number', value: detailDialog.item.poNumber },
                 { label: 'Vendor', value: detailDialog.item.vendorName },
                 { label: 'Total Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
@@ -592,6 +729,21 @@ export function CheckTransportPage() {
                 { label: 'Status', value: isCompleted(detailDialog.item) ? 'Completed' : 'Pending' },
                 { label: 'Delay 3 (Y)', value: isCompleted(detailDialog.item) ? ((detailDialog.item.delay3 || 0) === 0 ? 'On time' : `${detailDialog.item.delay3} day(s)`) : '—' },
                 { label: 'Updated By', value: detailDialog.item.updatedBy || '—' },
+=======
+                { label: 'PO Number',        value: detailDialog.item.poNumber },
+                { label: 'Vendor',           value: detailDialog.item.vendorName },
+                { label: 'Total Quantity',   value: detailDialog.item.totalQuantity?.toLocaleString() },
+                { label: 'Dispatch Qty',     value: detailDialog.item.quantity?.toLocaleString() || '—' },
+                { label: 'Location',         value: detailDialog.item.location },
+                { label: 'Delivery Location',value: detailDialog.item.deliveryLocation || '—' },
+                { label: 'Delivery Address', value: detailDialog.item.deliveryAddress || '—' },
+                { label: 'Transporter',      value: detailDialog.item.transporterName || '—' },
+                { label: 'Planned 3 (W)',    value: formatDate(detailDialog.item.planned3) },
+                { label: 'Actual 3 (X)',     value: hasValue(detailDialog.item.actual3) ? formatDate(detailDialog.item.actual3) : 'Not yet' },
+                { label: 'Status',           value: isCompleted(detailDialog.item) ? 'Completed' : 'Pending' },
+                { label: 'Delay 3 (Y)',      value: isCompleted(detailDialog.item) ? ((detailDialog.item.delay3 || 0) === 0 ? 'On time' : `${detailDialog.item.delay3} day(s)`) : '—' },
+                { label: 'Updated By',       value: detailDialog.item.updatedBy || '—' },
+>>>>>>> origin/main
               ].map((row) => (
                 <div key={row.label} className="flex items-start justify-between text-sm gap-4">
                   <span className="text-muted-foreground shrink-0">{row.label}</span>

@@ -864,6 +864,7 @@ export function CreateBillPage() {
 
       {/* ── Create Bill Dialog ─────────────────────────────────────── */}
       <Dialog open={createBillDialog.open} onOpenChange={(open) => !open && setCreateBillDialog({ open: false, row: null })}>
+<<<<<<< HEAD
         <DialogContent className="w-[94vw] sm:max-w-[620px] md:max-w-[680px] bg-card border-border shadow-xl rounded-2xl p-5 sm:p-6 max-h-[88vh] overflow-y-auto">
           <DialogHeader className="text-left mb-1">
             <DialogTitle className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
@@ -872,10 +873,21 @@ export function CreateBillPage() {
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-0.5">
               Enter bill details for PO <span className="font-semibold text-primary">{createBillDialog.row?.poNumber}</span>.
+=======
+        <DialogContent className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6">
+          <DialogHeader className="text-left mb-2">
+            <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+              <Receipt className="h-5 w-5 text-primary" />
+              Create Bill
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
+              Enter bill details for PO {createBillDialog.row?.poNumber}.
+>>>>>>> origin/main
             </DialogDescription>
           </DialogHeader>
 
           {createBillDialog.row && (
+<<<<<<< HEAD
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-3 py-2">
               <div className="space-y-1">
                 <Label className="text-[11px] font-semibold text-muted-foreground">Bill Number</Label>
@@ -888,6 +900,20 @@ export function CreateBillPage() {
 
               <div className="space-y-1">
                 <Label className="text-[11px] font-semibold text-muted-foreground">Bill Amount*</Label>
+=======
+            <div className="space-y-4 py-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Bill Number</Label>
+                <Input
+                  value={`BILL-${createBillDialog.row.poNumber}`}
+                  readOnly
+                  className="rounded-xl bg-muted border-input text-xs h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Bill Amount*</Label>
+>>>>>>> origin/main
                 <Input
                   type="number"
                   min="0"
@@ -895,24 +921,42 @@ export function CreateBillPage() {
                   value={billAmountInput}
                   onChange={(e) => setBillAmountInput(e.target.value)}
                   placeholder="e.g. 50000"
+<<<<<<< HEAD
                   className="rounded-xl bg-background border-input text-xs h-9"
+=======
+                  className="rounded-xl bg-background border-input text-xs h-10"
+>>>>>>> origin/main
                   required
                 />
               </div>
 
+<<<<<<< HEAD
               <div className="space-y-1 text-left">
                 <Label className="text-[11px] font-semibold text-muted-foreground">Bill Date*</Label>
+=======
+              <div className="space-y-1.5 text-left">
+                <Label className="text-xs font-semibold text-muted-foreground">Bill Date*</Label>
+>>>>>>> origin/main
                 <Input
                   type="date"
                   value={billDateInput}
                   onChange={(e) => setBillDateInput(e.target.value)}
+<<<<<<< HEAD
                   className="rounded-xl bg-background border-input text-xs h-9"
+=======
+                  className="rounded-xl bg-background border-input text-xs h-10"
+>>>>>>> origin/main
                   required
                 />
               </div>
 
+<<<<<<< HEAD
               <div className="space-y-1 text-left">
                 <Label className="text-[11px] font-semibold text-muted-foreground">Receive Amount</Label>
+=======
+              <div className="space-y-1.5 text-left">
+                <Label className="text-xs font-semibold text-muted-foreground">Receive Amount</Label>
+>>>>>>> origin/main
                 <Input
                   type="number"
                   min="0"
@@ -920,18 +964,28 @@ export function CreateBillPage() {
                   value={receivedAmountInput}
                   onChange={(e) => setReceivedAmountInput(e.target.value)}
                   placeholder="e.g. 45000"
+<<<<<<< HEAD
                   className="rounded-xl bg-background border-input text-xs h-9"
                 />
               </div>
 
               <div className="space-y-1 text-left sm:col-span-2">
                 <Label className="text-[11px] font-semibold text-muted-foreground">Supply Quantity</Label>
+=======
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <Label className="text-xs font-semibold text-muted-foreground">Supply Quantity</Label>
+>>>>>>> origin/main
                 <Input
                   type="number"
                   min="0"
                   value={supplyQuantity2Input}
                   onChange={(e) => setSupplyQuantity2Input(e.target.value)}
                   placeholder="e.g. 200"
+<<<<<<< HEAD
                   className="rounded-xl bg-background border-input text-xs h-9"
                 />
               </div>
@@ -939,10 +993,19 @@ export function CreateBillPage() {
               {/* Full Width: Narration */}
               <div className="space-y-1 text-left sm:col-span-2">
                 <Label className="text-[11px] font-semibold text-muted-foreground">Narration</Label>
+=======
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5 text-left">
+                <Label className="text-xs font-semibold text-muted-foreground">Narration</Label>
+>>>>>>> origin/main
                 <Input
                   value={narrationInput}
                   onChange={(e) => setNarrationInput(e.target.value)}
                   placeholder="e.g. Bill narration details"
+<<<<<<< HEAD
                   className="rounded-xl bg-background border-input text-xs h-9"
                 />
               </div>
@@ -950,6 +1013,14 @@ export function CreateBillPage() {
               {/* Full Width: Bill PDF */}
               <div className="space-y-1 sm:col-span-2">
                 <Label className="text-[11px] font-semibold text-muted-foreground">Bill PDF</Label>
+=======
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-semibold text-muted-foreground">Bill PDF</Label>
+>>>>>>> origin/main
                 <Input
                   type="file"
                   accept=".pdf,application/pdf"
@@ -960,10 +1031,17 @@ export function CreateBillPage() {
                       setBillPdfNameInput(file.name);
                     }
                   }}
+<<<<<<< HEAD
                   className="rounded-xl bg-background border-input file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer text-xs h-9"
                 />
                 {billPdfNameInput && (
                   <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+=======
+                  className="rounded-xl bg-background border-input file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer text-xs h-10"
+                />
+                {billPdfNameInput && (
+                  <p className="text-[10px] text-muted-foreground mt-1">
+>>>>>>> origin/main
                     Selected: {billPdfNameInput}
                   </p>
                 )}
@@ -971,18 +1049,30 @@ export function CreateBillPage() {
             </div>
           )}
 
+<<<<<<< HEAD
           <DialogFooter className="mt-4 gap-2 flex-row justify-end pt-2 border-t border-border">
             <Button
               variant="outline"
               onClick={() => setCreateBillDialog({ open: false, row: null })}
               className="border-border hover:bg-accent rounded-xl cursor-pointer text-xs h-9 px-4"
+=======
+          <DialogFooter className="mt-6 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCreateBillDialog({ open: false, row: null })}
+              className="border-border hover:bg-accent rounded-xl cursor-pointer"
+>>>>>>> origin/main
             >
               Cancel
             </Button>
             <Button
               onClick={handleCreateBill}
               disabled={isUploadingPdf}
+<<<<<<< HEAD
               className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl cursor-pointer gap-1.5 disabled:opacity-60 text-xs h-9 px-4"
+=======
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl cursor-pointer gap-1.5 disabled:opacity-60"
+>>>>>>> origin/main
             >
               <Receipt className="h-4 w-4" />
               {isUploadingPdf ? 'Uploading…' : 'Create Bill'}
@@ -993,7 +1083,11 @@ export function CreateBillPage() {
 
       {/* ── Detail View Dialog ─────────────────────────────────────── */}
       <Dialog open={detailDialog.open} onOpenChange={(open) => !open && setDetailDialog({ open: false, row: null })}>
+<<<<<<< HEAD
         <DialogContent className="w-[94vw] sm:max-w-[620px] md:max-w-[680px] bg-card border-border shadow-xl rounded-2xl p-5 sm:p-6 max-h-[88vh] overflow-y-auto">
+=======
+        <DialogContent className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6">
+>>>>>>> origin/main
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Eye className="h-5 w-5 text-primary" />
@@ -1005,7 +1099,11 @@ export function CreateBillPage() {
           </DialogHeader>
 
           {detailDialog.row && (
+<<<<<<< HEAD
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 py-2">
+=======
+            <div className="space-y-3 py-3">
+>>>>>>> origin/main
               {[
                 { label: 'PO Number', value: detailDialog.row.poNumber },
                 { label: 'Vendor', value: detailDialog.row.vendorName },
@@ -1027,7 +1125,11 @@ export function CreateBillPage() {
                 { label: 'Status', value: isCompleted(detailDialog.row) ? 'Completed' : 'Pending' },
                 { label: 'Delay', value: isCompleted(detailDialog.row) ? (detailDialog.row.delay1 === 0 ? 'On time' : `${detailDialog.row.delay1} day(s)`) : '—' },
               ].map((item) => (
+<<<<<<< HEAD
                 <div key={item.label} className="flex items-start justify-between text-xs gap-3 py-1 border-b border-border/40">
+=======
+                <div key={item.label} className="flex items-start justify-between text-sm gap-4">
+>>>>>>> origin/main
                   <span className="text-muted-foreground shrink-0">{item.label}</span>
                   <span className="font-medium text-foreground text-right break-all">{item.value}</span>
                 </div>
@@ -1035,11 +1137,19 @@ export function CreateBillPage() {
             </div>
           )}
 
+<<<<<<< HEAD
           <DialogFooter className="mt-4 pt-2 border-t border-border">
             <Button
               variant="outline"
               onClick={() => setDetailDialog({ open: false, row: null })}
               className="border-border hover:bg-accent rounded-xl cursor-pointer text-xs h-9 px-4"
+=======
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setDetailDialog({ open: false, row: null })}
+              className="border-border hover:bg-accent rounded-xl cursor-pointer"
+>>>>>>> origin/main
             >
               Close
             </Button>
