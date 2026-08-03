@@ -52,11 +52,9 @@ export default async function handler(req, res) {
     return;
   }
 
-  const scriptUrl = (process.env.VITE_SCRIPT_URL || '').trim();
-  if (!scriptUrl) {
-    res.status(500).json({ success: false, error: 'VITE_SCRIPT_URL is not configured.' });
-    return;
-  }
+  // Use env var if set; otherwise fall back to a default script URL (useful for deployed builds)
+  const scriptUrl = (process.env.VITE_SCRIPT_URL || '').trim() ||
+    'https://script.google.com/macros/s/AKfycbw29a7GH4YEEVSsZLRvFGmN89CBaz66HSfVw-8-S6KkfyDjUUTgA7XYrfaVyr5affalaA/exec';
 
   try {
     const urlObj = new URL(req.url, 'http://localhost');
