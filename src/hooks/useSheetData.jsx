@@ -231,16 +231,8 @@ const globalSheetListeners = {};
 const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache TTL
 
 function getValidCache(sheetName) {
-  const c = globalSheetCache[sheetName];
-  if (!c) return null;
-  // Preserve Login sheet cache without expiration
-  if (sheetName === 'Login') return c;
-  if (Date.now() - c.fetchedAt > CACHE_TTL_MS) {
-    console.log(`[useSheetData] Cache expired for "${sheetName}" (>10 mins). Clearing cache to free system memory.`);
-    delete globalSheetCache[sheetName];
-    return null;
-  }
-  return c;
+  // Cache disabled: always return null to force fresh fetch
+  return null;
 }
 
 // Auto-cleanup interval every 60 seconds to prune cache older than 10 minutes
@@ -303,12 +295,7 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
     headers.current = newHeaders;
     internal.current = newInternal;
     const cleanData = newInternal.map(normalizeRow);
-    globalSheetCache[sheetName] = {
-      headers: newHeaders,
-      internal: newInternal,
-      data: cleanData,
-      fetchedAt: Date.now()
-    };
+    // No global cache storage
     setDataState(cleanData);
     notifySheet(sheetName, cleanData, newInternal, newHeaders, instanceId.current);
   };
@@ -329,11 +316,7 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
   // ── Initial load / Silent revalidation ────────────────────────────────────
   useEffect(() => {
     let alive = true;
-
-    // Show initial loading spinner ONLY if no cached data exists
-    if (!globalSheetCache[sheetName]) {
-      setLoading(true);
-    }
+    setLoading(true);
 
     fetchSheet(sheetName)
       .then(({ headers: h, data: rows }) => {
