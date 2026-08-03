@@ -5,78 +5,52 @@ import path from 'path'
 import https from 'https'
 import http from 'http'
 
-// GET from Apps Script → Google returns 302 → we follow redirect → JSON response
-function proxyGet(targetUrl) {
+function fetchFollowRedirects(targetUrl, method = 'GET', contentType = null, body = null, depth = 0) {
+  if (depth > 5) return Promise.reject(new Error('Too many redirects'))
   return new Promise((resolve, reject) => {
-    const parsed = new URL(targetUrl)
-    const transport = parsed.protocol === 'https:' ? https : http
-
-    const req = transport.get(targetUrl, (res) => {
-      if ([301, 302, 303].includes(res.statusCode) && res.headers.location) {
-        res.resume() // drain redirect body
-        const loc = new URL(res.headers.location)
-        const t2 = loc.protocol === 'https:' ? https : http
-        const g = t2.get(loc.href, (res2) => {
-          const parts = []
-          res2.on('data', c => parts.push(c))
-          res2.on('end', () => resolve(Buffer.concat(parts).toString('utf8')))
-          res2.on('error', reject)
-        })
-        g.on('error', reject)
-        return
-      }
-      const parts = []
-      res.on('data', c => parts.push(c))
-      res.on('end', () => resolve(Buffer.concat(parts).toString('utf8')))
-      res.on('error', reject)
-    })
-
-    req.on('error', reject)
-  })
-}
-
-// POST to Apps Script → Google returns 302 → we follow as GET to echo URL → JSON response
-function proxyPost(targetUrl, contentType, body) {
-  return new Promise((resolve, reject) => {
-    const parsed = new URL(targetUrl)
+    let parsed
+    try {
+      parsed = new URL(targetUrl)
+    } catch (e) {
+      return reject(e)
+    }
     const transport = parsed.protocol === 'https:' ? https : http
 
     const opts = {
       hostname: parsed.hostname,
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
       path: parsed.pathname + parsed.search,
-      method: 'POST',
-      headers: {
+      method: method,
+      headers: method === 'POST' && contentType && body ? {
         'Content-Type': contentType,
-        'Content-Length': body.length,
-      },
+        'Content-Length': Buffer.byteLength(body),
+      } : {},
     }
 
     const req = transport.request(opts, (res) => {
-      if ([301, 302, 303].includes(res.statusCode) && res.headers.location) {
-        res.resume() // drain redirect body
-        const loc = new URL(res.headers.location)
-        const t2  = loc.protocol === 'https:' ? https : http
-        const g   = t2.get(loc.href, (res2) => {
-          const parts = []
-          res2.on('data', c => parts.push(c))
-          res2.on('end',  () => resolve(Buffer.concat(parts).toString('utf8')))
-          res2.on('error', reject)
-        })
-        g.on('error', reject)
-        return
+      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+        res.resume()
+        const nextUrl = new URL(res.headers.location, targetUrl).href
+        return fetchFollowRedirects(nextUrl, 'GET', null, null, depth + 1)
+          .then(resolve)
+          .catch(reject)
       }
       const parts = []
-      res.on('data',  c => parts.push(c))
-      res.on('end',   () => resolve(Buffer.concat(parts).toString('utf8')))
+      res.on('data', c => parts.push(c))
+      res.on('end',  () => resolve(Buffer.concat(parts).toString('utf8')))
       res.on('error', reject)
     })
 
     req.on('error', reject)
-    req.write(body)
+    if (method === 'POST' && body) {
+      req.write(body)
+    }
     req.end()
   })
 }
+
+const proxyGet = (url) => fetchFollowRedirects(url, 'GET')
+const proxyPost = (url, type, body) => fetchFollowRedirects(url, 'POST', type, body)
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')

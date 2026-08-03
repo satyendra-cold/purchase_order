@@ -1,37 +1,37 @@
-// Vercel serverless function — mirrors the Vite dev proxy so PDF uploads
-// work in production without CORS issues (browser → this function → GAS).
+// Vercel serverless function — mirrors the Vite dev proxy for POST requests
 import https from 'https';
 import http from 'http';
 
-function proxyPost(targetUrl, contentType, body) {
+function fetchFollowRedirects(targetUrl, method = 'POST', contentType = null, body = null, depth = 0) {
+  if (depth > 5) return Promise.reject(new Error('Too many redirects'));
   return new Promise((resolve, reject) => {
-    const parsed = new URL(targetUrl);
+    let parsed;
+    try {
+      parsed = new URL(targetUrl);
+    } catch (e) {
+      return reject(e);
+    }
     const transport = parsed.protocol === 'https:' ? https : http;
 
     const opts = {
       hostname: parsed.hostname,
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
       path: parsed.pathname + parsed.search,
-      method: 'POST',
-      headers: {
+      method: method,
+      headers: method === 'POST' && contentType && body ? {
         'Content-Type': contentType,
         'Content-Length': Buffer.byteLength(body),
-      },
+      } : {},
     };
 
     const req = transport.request(opts, (res) => {
-      if ([301, 302, 303].includes(res.statusCode) && res.headers.location) {
+      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
         res.resume();
-        const loc = new URL(res.headers.location);
-        const t2 = loc.protocol === 'https:' ? https : http;
-        const g = t2.get(loc.href, (res2) => {
-          const parts = [];
-          res2.on('data', (c) => parts.push(c));
-          res2.on('end', () => resolve(Buffer.concat(parts).toString('utf8')));
-          res2.on('error', reject);
-        });
-        g.on('error', reject);
-        return;
+        const nextUrl = new URL(res.headers.location, targetUrl).href;
+        // After initial POST, redirects follow with GET
+        return fetchFollowRedirects(nextUrl, 'GET', null, null, depth + 1)
+          .then(resolve)
+          .catch(reject);
       }
       const parts = [];
       res.on('data', (c) => parts.push(c));
@@ -40,7 +40,9 @@ function proxyPost(targetUrl, contentType, body) {
     });
 
     req.on('error', reject);
-    req.write(body);
+    if (method === 'POST' && body) {
+      req.write(body);
+    }
     req.end();
   });
 }
@@ -60,7 +62,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const scriptUrl = process.env.VITE_SCRIPT_URL;
+  const scriptUrl = (process.env.VITE_SCRIPT_URL || '').trim();
   if (!scriptUrl) {
     res.status(500).json({ success: false, error: 'VITE_SCRIPT_URL is not configured.' });
     return;
@@ -72,7 +74,7 @@ export default async function handler(req, res) {
     const body = Buffer.concat(chunks);
     const contentType = req.headers['content-type'] || 'text/plain;charset=utf-8';
 
-    const text = await proxyPost(scriptUrl, contentType, body);
+    const text = await fetchFollowRedirects(scriptUrl, 'POST', contentType, body);
 
     const start = text.indexOf('{');
     const end = text.lastIndexOf('}');

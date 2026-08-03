@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { fetchSheet, insertRow, updateCell, updateRow, deleteRow } from '@/services/api';
+import { fetchSheet, insertRow, updateCell, updateRow, deleteRow, batchDelete, batchUpdateCells } from '@/services/api';
 
 const isReadOnlyField = (h) =>
   /^planned\d*$/i.test(h) ||
@@ -202,6 +202,8 @@ function normalizeRow(row) {
     'Pending Qty': row.pendingQty ?? row['Pending Qty'] ?? '',
     cancelQty: row.cancelQty ?? row['Cancel Qty'] ?? '',
     'Cancel Qty': row.cancelQty ?? row['Cancel Qty'] ?? '',
+    billAmount: row.billAmount ?? row['Bill Amount'] ?? '',
+    'Bill Amount': row.billAmount ?? row['Bill Amount'] ?? '',
     damageQty: row.damageQty ?? row['Damage Qty'] ?? row['Damage Quantity'] ?? row.BD ?? row['BD'] ?? '',
   };
 }
@@ -265,7 +267,7 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
         headers.current  = h;
         const normalizedRows = rows.map(({ _row, ...rest }) => ({ _row, ...normalizeRow(rest) }));
         internal.current = normalizedRows;
-        setDataState(normalizedRows.map(({ _row, ...rest }) => rest));
+        setDataState(normalizedRows);
       })
       .catch(err => console.error(`[useSheetData] ${sheetName}:`, err))
       .finally(() => { if (alive) setLoading(false); });
@@ -304,71 +306,92 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
 
     // optimistic state update (UI responds instantly)
     internal.current = newInternal;
-    setDataState(newClean.map(normalizeRow));
+    setDataState(newInternal.map(normalizeRow));
 
     if (!headers.current.length) return; // sheet not loaded yet; skip sync
 
-    // ── deletes (process bottom-to-top so earlier row indices stay valid) ──
-    const sortedDeletes = [...changes.deletes].sort((a, b) => (b._row ?? 0) - (a._row ?? 0));
-    for (const item of sortedDeletes) {
-      try {
-        await deleteRow(sheetName, item._row);
-        // shift _row of rows that were below the deleted one
-        internal.current = internal.current
-          .filter(x => getKeyVal(x, keyField) !== getKeyVal(item, keyField))
-          .map(x => x._row > item._row ? { ...x, _row: x._row - 1 } : x);
-      } catch (err) {
-        console.error(`[useSheetData] delete failed in "${sheetName}":`, err);
-        onErrorRef.current?.(`Delete failed: ${err.message}`);
+    // ── deletes (use batchDelete when deleting multiple rows) ─────────────────
+    if (changes.deletes.length > 0) {
+      const deleteIndices = changes.deletes
+        .map((item) => item._row)
+        .filter((r) => r != null && !isNaN(r));
+
+      if (deleteIndices.length > 1) {
+        try {
+          await batchDelete(sheetName, deleteIndices);
+          const sorted = [...deleteIndices].sort((a, b) => b - a);
+          sorted.forEach((deletedRow) => {
+            internal.current = internal.current
+              .filter((x) => x._row !== deletedRow)
+              .map((x) => (x._row > deletedRow ? { ...x, _row: x._row - 1 } : x));
+          });
+        } catch (err) {
+          console.error(`[useSheetData] batchDelete failed in "${sheetName}":`, err);
+          onErrorRef.current?.(`Batch delete failed: ${err.message}`);
+        }
+      } else {
+        const sortedDeletes = [...changes.deletes].sort((a, b) => (b._row ?? 0) - (a._row ?? 0));
+        for (const item of sortedDeletes) {
+          try {
+            await deleteRow(sheetName, item._row);
+            internal.current = internal.current
+              .filter((x) => getKeyVal(x, keyField) !== getKeyVal(item, keyField))
+              .map((x) => (x._row > item._row ? { ...x, _row: x._row - 1 } : x));
+          } catch (err) {
+            console.error(`[useSheetData] delete failed in "${sheetName}":`, err);
+            onErrorRef.current?.(`Delete failed: ${err.message}`);
+          }
+        }
       }
     }
 
-    // ── updates — one updateCell call per changed writable field ─────────
-    // Only the fields that actually changed are sent. planned*/delay* are
-    // always excluded (isReadOnlyField) so sheet formulas are never touched.
-    for (const item of changes.updates) {
-      const prev = oldMap.get(getKeyVal(item, keyField));
-      let col55Handled = false;
-      let col56Handled = false;
+    // ── updates (batch cell updates per request) ───────────────────────────
+    if (changes.updates.length > 0) {
+      const cellUpdates = [];
+      for (const item of changes.updates) {
+        const prev = oldMap.get(getKeyVal(item, keyField));
+        let col55Handled = false;
+        let col56Handled = false;
 
-      for (let i = 0; i < headers.current.length; i++) {
-        const h = headers.current[i];
-        if (isReadOnlyField(h)) continue; // never write planned* or delay*
-        if (i === 54) col55Handled = true;
-        if (i === 55) col56Handled = true;
+        for (let i = 0; i < headers.current.length; i++) {
+          const h = headers.current[i];
+          if (isReadOnlyField(h)) continue; // never write planned* or delay*
+          if (i === 54) col55Handled = true;
+          if (i === 55) col56Handled = true;
 
-        const newVal = getValueForHeader(item, h);
-        const oldVal = prev ? getValueForHeader(prev, h) : undefined;
-        // Skip fields that haven't changed
-        if (oldVal !== undefined && String(newVal) === String(oldVal)) continue;
-        const cellValue = Array.isArray(newVal) ? JSON.stringify(newVal) : String(newVal);
-        try {
-          await updateCell(sheetName, item._row, i + 1, cellValue);
-        } catch (err) {
-          console.error(`[useSheetData] updateCell failed for "${h}" in "${sheetName}":`, err);
-          onErrorRef.current?.(`Failed to save "${h}": ${err.message}`);
+          const newVal = getValueForHeader(item, h);
+          const oldVal = prev ? getValueForHeader(prev, h) : undefined;
+          if (oldVal !== undefined && String(newVal) === String(oldVal)) continue;
+
+          const cellValue = Array.isArray(newVal) ? JSON.stringify(newVal) : String(newVal);
+          cellUpdates.push({ rowIndex: item._row, columnIndex: i + 1, value: cellValue });
+        }
+
+        // Fallbacks for Column BC (55th column) & BD (56th column)
+        const bcVal = item.narration ?? item['Narration'] ?? item.BC ?? item['BC'] ?? item.narretion ?? item['Narretion'];
+        const prevBcVal = prev ? (prev.narration ?? prev['Narration'] ?? prev.BC ?? prev['BC'] ?? prev.narretion ?? prev['Narretion']) : undefined;
+        if (!col55Handled && bcVal !== undefined && String(bcVal) !== String(prevBcVal ?? '') && item._row) {
+          cellUpdates.push({ rowIndex: item._row, columnIndex: 55, value: String(bcVal) });
+        }
+
+        const bdVal = item.damageQty ?? item['Damage Qty'] ?? item['Damage Quantity'] ?? item.BD ?? item['BD'];
+        const prevBdVal = prev ? (prev.damageQty ?? prev['Damage Qty'] ?? prev['Damage Quantity'] ?? prev.BD ?? prev['BD']) : undefined;
+        if (!col56Handled && bdVal !== undefined && String(bdVal) !== String(prevBdVal ?? '') && item._row) {
+          cellUpdates.push({ rowIndex: item._row, columnIndex: 56, value: String(bdVal) });
         }
       }
 
-      // Fallback for Column BC (55th column) if not updated by header match
-      const bcVal = item.narration ?? item['Narration'] ?? item.BC ?? item['BC'] ?? item.narretion ?? item['Narretion'];
-      const prevBcVal = prev ? (prev.narration ?? prev['Narration'] ?? prev.BC ?? prev['BC'] ?? prev.narretion ?? prev['Narretion']) : undefined;
-      if (!col55Handled && bcVal !== undefined && String(bcVal) !== String(prevBcVal ?? '') && item._row) {
+      if (cellUpdates.length > 0) {
         try {
-          await updateCell(sheetName, item._row, 55, String(bcVal));
+          if (cellUpdates.length === 1) {
+            const u = cellUpdates[0];
+            await updateCell(sheetName, u.rowIndex, u.columnIndex, u.value);
+          } else {
+            await batchUpdateCells(sheetName, cellUpdates);
+          }
         } catch (err) {
-          console.error(`[useSheetData] updateCell col 55 (BC) failed in "${sheetName}":`, err);
-        }
-      }
-
-      // Fallback for Column BD (56th column) if not updated by header match
-      const bdVal = item.damageQty ?? item['Damage Qty'] ?? item['Damage Quantity'] ?? item.BD ?? item['BD'];
-      const prevBdVal = prev ? (prev.damageQty ?? prev['Damage Qty'] ?? prev['Damage Quantity'] ?? prev.BD ?? prev['BD']) : undefined;
-      if (!col56Handled && bdVal !== undefined && String(bdVal) !== String(prevBdVal ?? '') && item._row) {
-        try {
-          await updateCell(sheetName, item._row, 56, String(bdVal));
-        } catch (err) {
-          console.error(`[useSheetData] updateCell col 56 (BD) failed in "${sheetName}":`, err);
+          console.error(`[useSheetData] updates failed in "${sheetName}":`, err);
+          onErrorRef.current?.(`Failed to save updates: ${err.message}`);
         }
       }
     }

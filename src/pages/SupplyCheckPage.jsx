@@ -67,7 +67,19 @@ export function SupplyCheckPage() {
   const handleMarkComplete = (item) => {
     const nowTimestamp = makeTimestamp(); // M/D/YYYY H:mm:ss format
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
+    const totalQty = Number(item.totalQuantity || item['Total Quantity'] || item.quantity || item['Quantity'] || 0);
     const parsedDamage = damageQtyInput !== '' ? parseFloat(damageQtyInput) : '';
+
+    if (damageQtyInput !== '') {
+      if (isNaN(parsedDamage) || parsedDamage < 0) {
+        toast('Damaged quantity cannot be negative', 'error');
+        return;
+      }
+      if (totalQty > 0 && parsedDamage > totalQty) {
+        toast(`Damaged quantity (${parsedDamage}) cannot be greater than total quantity (${totalQty})`, 'error');
+        return;
+      }
+    }
 
     // Update FMS directly
     const updated = fmsData.map((r) =>
@@ -320,44 +332,71 @@ export function SupplyCheckPage() {
               This will mark the received supply as checked and stamp Actual 5 (col AI).
             </DialogDescription>
           </DialogHeader>
-          {confirmDialog.item && (
-            <div className="space-y-3 py-3 text-left">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">PO Number</span>
-                <span className="font-semibold text-primary">{confirmDialog.item.poNumber}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Vendor</span>
-                <span className="font-medium">{confirmDialog.item.vendorName}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Planned Date</span>
-                <span className="font-medium">{formatDate(confirmDialog.item.planned5)}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Verified By</span>
-                <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
-              </div>
-              <div className="space-y-1.5 text-left pt-2 border-t border-border">
-                <Label className="text-xs font-semibold text-muted-foreground">Damage Qty</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="any"
-                  value={damageQtyInput}
-                  onChange={(e) => setDamageQtyInput(e.target.value)}
-                  placeholder="e.g. 0"
-                  className="rounded-xl bg-background border-input text-xs h-10"
-                />
-              </div>
-            </div>
-          )}
-          <DialogFooter className="mt-4 gap-2">
-            <Button variant="outline" onClick={() => setConfirmDialog({ open: false, item: null })} className="border-border hover:bg-accent rounded-xl cursor-pointer">Cancel</Button>
-            <Button onClick={() => confirmDialog.item && handleMarkComplete(confirmDialog.item)} className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5">
-              <ClipboardCheck className="h-4 w-4" />Verify Received
-            </Button>
-          </DialogFooter>
+          {confirmDialog.item && (() => {
+            const totalQty = Number(confirmDialog.item.totalQuantity || confirmDialog.item['Total Quantity'] || confirmDialog.item.quantity || confirmDialog.item['Quantity'] || 0);
+            const damageVal = damageQtyInput !== '' ? parseFloat(damageQtyInput) : 0;
+            const isDamageInvalid = damageQtyInput !== '' && (isNaN(damageVal) || damageVal < 0 || (totalQty > 0 && damageVal > totalQty));
+
+            return (
+              <>
+                <div className="space-y-3 py-3 text-left">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">PO Number</span>
+                    <span className="font-semibold text-primary">{confirmDialog.item.poNumber}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Vendor</span>
+                    <span className="font-medium">{confirmDialog.item.vendorName}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Total Quantity</span>
+                    <span className="font-medium">{totalQty > 0 ? totalQty.toLocaleString() : '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Planned Date</span>
+                    <span className="font-medium">{formatDate(confirmDialog.item.planned5)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Verified By</span>
+                    <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
+                  </div>
+                  <div className="space-y-1.5 text-left pt-2 border-t border-border">
+                    <Label className="text-xs font-semibold text-muted-foreground">Damage Qty</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max={totalQty > 0 ? totalQty : undefined}
+                      step="any"
+                      value={damageQtyInput}
+                      onChange={(e) => setDamageQtyInput(e.target.value)}
+                      placeholder="e.g. 0"
+                      className={`rounded-xl bg-background border-input text-xs h-10 ${isDamageInvalid ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
+                    />
+                    {damageQtyInput !== '' && totalQty > 0 && damageVal > totalQty && (
+                      <p className="text-[11px] text-rose-500 font-medium mt-1">
+                        Damaged quantity cannot be greater than total quantity ({totalQty.toLocaleString()}).
+                      </p>
+                    )}
+                    {damageQtyInput !== '' && damageVal < 0 && (
+                      <p className="text-[11px] text-rose-500 font-medium mt-1">
+                        Damaged quantity cannot be negative.
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <DialogFooter className="mt-4 gap-2">
+                  <Button variant="outline" onClick={() => setConfirmDialog({ open: false, item: null })} className="border-border hover:bg-accent rounded-xl cursor-pointer">Cancel</Button>
+                  <Button
+                    onClick={() => confirmDialog.item && handleMarkComplete(confirmDialog.item)}
+                    disabled={isDamageInvalid}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ClipboardCheck className="h-4 w-4" />Verify Received
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 

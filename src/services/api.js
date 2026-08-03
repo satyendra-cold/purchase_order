@@ -7,10 +7,10 @@ function parseJSON(text) {
   catch { throw new Error('Invalid response from server'); }
 }
 
-// ── GET fetch (routed through /api/read to eliminate browser CORS 302 redirects when available) ──
+// ── GET fetch (routed through /api/read proxy to avoid browser CORS/302 redirects) ──
 async function getParams(params) {
   const qs = new URLSearchParams(params).toString();
-  const url = SCRIPT_URL ? `${SCRIPT_URL}?${qs}` : `/api/read?${qs}`;
+  const url = `/api/read?${qs}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Request failed: ${res.status}`);
   const json = parseJSON(await res.text());
@@ -36,7 +36,7 @@ async function postParams(params) {
 
 // ── Sheet read ─────────────────────────────────────────────────────────────
 export async function fetchSheet(sheetName) {
-  const url = SCRIPT_URL ? `${SCRIPT_URL}?sheet=${encodeURIComponent(sheetName)}` : `/api/read?sheet=${encodeURIComponent(sheetName)}`;
+  const url = `/api/read?sheet=${encodeURIComponent(sheetName)}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Failed to fetch "${sheetName}": ${res.status}`);
   const json = await res.json();
@@ -88,6 +88,12 @@ export const markDeleted = (sheetName, rowIndex, columnIndex, value = 'Yes') =>
 
 export const batchInsert = (sheetName, rowsData) =>
   postParams({ action: 'batchInsert', sheetName, rowsData: JSON.stringify(rowsData) });
+
+export const batchDelete = (sheetName, rowIndices) =>
+  postParams({ action: 'batchDelete', sheetName, rowIndices: JSON.stringify(rowIndices) });
+
+export const batchUpdateCells = (sheetName, updates) =>
+  postParams({ action: 'batchUpdateCells', sheetName, updates: JSON.stringify(updates) });
 
 // ── File upload stays POST (base64 too large for URL) ─────────────────────
 export const uploadFile = (base64Data, fileName, mimeType, folderId) =>

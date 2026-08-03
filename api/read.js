@@ -1,26 +1,25 @@
 // Vercel serverless function — mirrors the Vite dev proxy for GET requests
-// so fetching sheet data works without CORS issues in production (browser → this function → GAS).
 import https from 'https';
 import http from 'http';
 
-function proxyGet(targetUrl) {
+function fetchFollowRedirects(targetUrl, depth = 0) {
+  if (depth > 5) return Promise.reject(new Error('Too many redirects'));
   return new Promise((resolve, reject) => {
-    const parsed = new URL(targetUrl);
+    let parsed;
+    try {
+      parsed = new URL(targetUrl);
+    } catch (e) {
+      return reject(e);
+    }
     const transport = parsed.protocol === 'https:' ? https : http;
 
     const req = transport.get(targetUrl, (res) => {
-      if ([301, 302, 303].includes(res.statusCode) && res.headers.location) {
+      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
         res.resume();
-        const loc = new URL(res.headers.location);
-        const t2 = loc.protocol === 'https:' ? https : http;
-        const g = t2.get(loc.href, (res2) => {
-          const parts = [];
-          res2.on('data', (c) => parts.push(c));
-          res2.on('end', () => resolve(Buffer.concat(parts).toString('utf8')));
-          res2.on('error', reject);
-        });
-        g.on('error', reject);
-        return;
+        const nextUrl = new URL(res.headers.location, targetUrl).href;
+        return fetchFollowRedirects(nextUrl, depth + 1)
+          .then(resolve)
+          .catch(reject);
       }
       const parts = [];
       res.on('data', (c) => parts.push(c));
@@ -42,7 +41,7 @@ export default async function handler(req, res) {
     return;
   }
 
-  const scriptUrl = process.env.VITE_SCRIPT_URL;
+  const scriptUrl = (process.env.VITE_SCRIPT_URL || '').trim();
   if (!scriptUrl) {
     res.status(500).json({ success: false, error: 'VITE_SCRIPT_URL is not configured.' });
     return;
@@ -52,7 +51,7 @@ export default async function handler(req, res) {
     const urlObj = new URL(req.url, 'http://localhost');
     const fullTarget = scriptUrl + urlObj.search;
 
-    const text = await proxyGet(fullTarget);
+    const text = await fetchFollowRedirects(fullTarget);
 
     const start = text.indexOf('{');
     const end = text.lastIndexOf('}');
@@ -64,7 +63,7 @@ export default async function handler(req, res) {
     } catch {
       res.status(200).json({
         success: false,
-        error: 'Apps Script returned non-JSON. Ensure "Who has access" is set to "Anyone" in Web App deployment.'
+        error: 'Apps Script returned non-JSON. Ensure Web App deployment access is set to "Anyone".',
       });
       return;
     }

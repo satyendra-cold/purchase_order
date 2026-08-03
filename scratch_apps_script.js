@@ -1,22 +1,34 @@
-
-
-const SPREADSHEET_ID = "1DYTq5KGS-lDGFbKqXB8xpLy0I6VM0YeUsuW5CvCd_n0";
-const PO_PDF_FOLDER_ID = "1Hzz1nxg1A_rDaigFZ6ZMxpB2-AzSmIhM";
-const CACHE_EXPIRY_SEC = 60; // seconds for CacheService TTL
+var SPREADSHEET_ID = "17w8Yz1O-tXSYeVb3TxdMrCRzKQ8ZE74jQohSpUf7H2A";
+var PO_PDF_FOLDER_ID = "1Hzz1nxg1A_rDaigFZ6ZMxpB2-AzSmIhM";
+var CACHE_EXPIRY_SEC = 60; // seconds for CacheService TTL
 
 // ── Single spreadsheet handle per execution ──────────────────
 let _ss = null;
 function getSpreadsheet() {
-    if (!_ss) _ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    if (!_ss) {
+        var id = "17w8Yz1O-tXSYeVb3TxdMrCRzKQ8ZE74jQohSpUf7H2A";
+        try {
+            if (typeof SPREADSHEET_ID !== 'undefined' && SPREADSHEET_ID) {
+                id = SPREADSHEET_ID;
+            }
+        } catch (e) {}
+        _ss = SpreadsheetApp.openById(id);
+    }
     return _ss;
 }
 
-// ── In-execution sheet-data cache (avoids double reads) ──────
+// ── In-execution sheet-data cache (avoids double reads & trailing empty cells) ──────
 const _sheetDataCache = {};
 function getSheetData(sheet) {
     const name = sheet.getName();
     if (!_sheetDataCache[name]) {
-        _sheetDataCache[name] = sheet.getDataRange().getValues();
+        const lastRow = sheet.getLastRow();
+        const lastCol = sheet.getLastColumn();
+        if (lastRow < 1 || lastCol < 1) {
+            _sheetDataCache[name] = [];
+        } else {
+            _sheetDataCache[name] = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+        }
     }
     return _sheetDataCache[name];
 }
@@ -37,7 +49,6 @@ function getCached(key) {
 function putCached(key, data) {
     try {
         const s = JSON.stringify(data);
-        // CacheService max value size is 100 KB; skip if too large
         if (s.length < 95000) _appCache.put(key, s, CACHE_EXPIRY_SEC);
     } catch (e) { /* silent */ }
 }
@@ -51,7 +62,7 @@ function bustCache(sheetName) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  Schema definitions (unchanged)
+//  Schema definitions
 // ─────────────────────────────────────────────────────────────
 const SHEET_CONFIGS = {
     'FMS': {
@@ -191,7 +202,6 @@ function buildMasterRow(vCfg, exposedRowData) {
     return fullRow;
 }
 
-// ── Parameter normaliser (called once per request) ────────────
 function parseParameters(e) {
     const params = {};
     if (e && e.parameter) {
@@ -213,18 +223,15 @@ function parseParameters(e) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  READ handler  (used by both doGet and doPost for read actions)
+//  READ handler
 // ─────────────────────────────────────────────────────────────
 function handleRead(sheetName, ss) {
-    // 1. Try CacheService first
     const cKey = bustedCacheKey(sheetName);
     const cached = getCached(cKey);
     if (cached) return jsonData(cached);
 
-    // 2. Virtual sheet?
     if (VIRTUAL_SHEETS[sheetName]) return handleVirtualSheetGet(sheetName, ss);
 
-    // 3. Real sheet
     const sheet = ss.getSheetByName(sheetName);
     if (!sheet) return jsonError("Sheet '" + sheetName + "' not found");
 
@@ -232,7 +239,6 @@ function handleRead(sheetName, ss) {
     const headerRow = cfg.headerRow || 1;
     const colMap = cfg.columnMap || {};
 
-    // Single bulk read
     const allData = getSheetData(sheet);
 
     if (allData.length < headerRow) {
@@ -254,20 +260,15 @@ function handleRead(sheetName, ss) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  WRITE handlers — each busts the cache on success
+//  WRITE handlers — optimized (no explicit flush overhead)
 // ─────────────────────────────────────────────────────────────
-
-// ── insert ────────────────────────────────────────────────────
 function handleInsert(sheet, params) {
     const rowData = JSON.parse(params.rowData);
-    // appendRow is fine for single-row insert; for batches use batchInsert
     sheet.appendRow(rowData);
-    SpreadsheetApp.flush();
     bustCache(sheet.getName());
     return jsonSuccess("Data inserted successfully");
 }
 
-// ── update (batch-write all non-empty cells in one range call) ─
 function handleUpdate(sheet, params) {
     const rowIndex = parseInt(params.rowIndex);
     if (isNaN(rowIndex) || rowIndex < 2) return jsonError("Invalid row index for update");
@@ -275,7 +276,6 @@ function handleUpdate(sheet, params) {
     const rowData = JSON.parse(params.rowData);
     const numCols = rowData.length;
 
-    // ⚡ Read the existing row once, merge, then write the whole row in ONE call
     const existingRange = sheet.getRange(rowIndex, 1, 1, numCols);
     const existing = existingRange.getValues()[0];
 
@@ -284,67 +284,103 @@ function handleUpdate(sheet, params) {
             existing[i] = rowData[i];
         }
     }
-    existingRange.setValues([existing]);   // ← single API call instead of N setValue() calls
-    SpreadsheetApp.flush();
+    existingRange.setValues([existing]);
     bustCache(sheet.getName());
     return jsonSuccess("Data updated successfully");
 }
 
-// ── updateCell ────────────────────────────────────────────────
 function handleUpdateCell(sheet, params) {
     const rowIndex = parseInt(params.rowIndex);
     const columnIndex = parseInt(params.columnIndex);
     if (isNaN(rowIndex) || rowIndex < 1 || isNaN(columnIndex) || columnIndex < 1)
         return jsonError("Invalid row or column index");
     sheet.getRange(rowIndex, columnIndex).setValue(params.value);
-    SpreadsheetApp.flush();
     bustCache(sheet.getName());
     return jsonSuccess("Cell updated successfully");
 }
 
-// ── delete ────────────────────────────────────────────────────
 function handleDelete(sheet, params) {
     const rowIndex = parseInt(params.rowIndex);
     if (isNaN(rowIndex) || rowIndex < 2) return jsonError("Invalid row index for delete");
     sheet.deleteRow(rowIndex);
-    SpreadsheetApp.flush();
     bustCache(sheet.getName());
     return jsonSuccess("Row deleted successfully");
 }
 
-// ── markDeleted ───────────────────────────────────────────────
 function handleMarkDeleted(sheet, params) {
     const rowIndex = parseInt(params.rowIndex);
     const columnIndex = parseInt(params.columnIndex);
     if (isNaN(rowIndex) || rowIndex < 2) return jsonError("Invalid row index");
     if (isNaN(columnIndex) || columnIndex < 1) return jsonError("Invalid column index");
     sheet.getRange(rowIndex, columnIndex).setValue(params.value || 'Yes');
-    SpreadsheetApp.flush();
     bustCache(sheet.getName());
     return jsonSuccess("Row marked as deleted successfully");
 }
 
-// ── batchInsert ───────────────────────────────────────────────
 function handleBatchInsert(sheet, params) {
     const rowsData = JSON.parse(params.rowsData);
     if (!Array.isArray(rowsData) || rowsData.length === 0)
         return jsonError("Invalid rows data for batch insert");
     const lastRow = sheet.getLastRow();
-    // Single setValues() call for all rows — fastest possible bulk write
     sheet.getRange(lastRow + 1, 1, rowsData.length, rowsData[0].length).setValues(rowsData);
-    SpreadsheetApp.flush();
     bustCache(sheet.getName());
     return jsonSuccess("Batch insert successful", { rowsInserted: rowsData.length });
 }
 
-// ── Action dispatch map (avoids long if-else chains) ─────────
+// ── batchDelete (High Performance & Row ID Based) ─────────────
+function handleBatchDelete(sheet, params) {
+    let rowIndices = [];
+    try {
+        rowIndices = JSON.parse(params.rowIndices);
+    } catch (e) {
+        return jsonError("Invalid JSON for rowIndices: " + e.message);
+    }
+    if (!Array.isArray(rowIndices) || rowIndices.length === 0)
+        return jsonError("Invalid row indices for batch delete");
+
+    const sorted = [...rowIndices].map(Number).sort((a, b) => b - a);
+    let deletedCount = 0;
+    for (let i = 0; i < sorted.length; i++) {
+        const rIdx = sorted[i];
+        if (!isNaN(rIdx) && rIdx >= 2 && rIdx <= sheet.getLastRow()) {
+            sheet.deleteRow(rIdx);
+            deletedCount++;
+        }
+    }
+    bustCache(sheet.getName());
+    return jsonSuccess("Batch delete successful", { rowsDeleted: deletedCount });
+}
+
+// ── batchUpdateCells (High Performance) ──────────────────────
+function handleBatchUpdateCells(sheet, params) {
+    let updates = [];
+    try {
+        updates = JSON.parse(params.updates);
+    } catch (e) {
+        return jsonError("Invalid JSON for updates: " + e.message);
+    }
+    if (!Array.isArray(updates) || updates.length === 0)
+        return jsonError("Invalid updates array for batch update cells");
+    updates.forEach(u => {
+        const rIdx = parseInt(u.rowIndex);
+        const cIdx = parseInt(u.columnIndex);
+        if (!isNaN(rIdx) && rIdx >= 1 && !isNaN(cIdx) && cIdx >= 1) {
+            sheet.getRange(rIdx, cIdx).setValue(u.value);
+        }
+    });
+    bustCache(sheet.getName());
+    return jsonSuccess("Batch cell updates successful", { cellsUpdated: updates.length });
+}
+
 const WRITE_ACTIONS = {
     insert: handleInsert,
     update: handleUpdate,
     updateCell: handleUpdateCell,
     delete: handleDelete,
     markDeleted: handleMarkDeleted,
-    batchInsert: handleBatchInsert
+    batchInsert: handleBatchInsert,
+    batchDelete: handleBatchDelete,
+    batchUpdateCells: handleBatchUpdateCells
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -355,7 +391,6 @@ function handleVirtualSheetGet(virtualSheetName, ss) {
     const masterSheet = ss.getSheetByName(vCfg.masterSheet);
     if (!masterSheet) return jsonError(`Master sheet '${vCfg.masterSheet}' not found`);
 
-    // Single bulk read of master sheet (cached in-execution)
     const allData = getSheetData(masterSheet);
     if (allData.length < 2) {
         return jsonData({
@@ -370,11 +405,10 @@ function handleVirtualSheetGet(virtualSheetName, ss) {
     const rowIndices = [];
     const filteredRows = [];
 
-    // Slice loop — no regex, no repeated indexOf
     for (let i = 1; i < allData.length; i++) {
         const row = allData[i];
         if (String(row[typeColIdx] || '').trim().toLowerCase() === typeValueLc) {
-            rowIndices.push(i + 1); // 1-based sheet row
+            rowIndices.push(i + 1);
             filteredRows.push(vCfg.exposeColumns.map(col => row[col] !== undefined ? row[col] : ''));
         }
     }
@@ -397,7 +431,6 @@ function handleVirtualSheetPost(virtualSheetName, action, params, ss) {
         if (action === 'insert') {
             const fullRow = buildMasterRow(vCfg, JSON.parse(params.rowData));
             masterSheet.appendRow(fullRow);
-            SpreadsheetApp.flush();
             bustCache(vCfg.masterSheet);
             bustCache(virtualSheetName);
             return jsonSuccess("Data inserted successfully");
@@ -407,7 +440,6 @@ function handleVirtualSheetPost(virtualSheetName, action, params, ss) {
             if (isNaN(rowIndex) || rowIndex < 2) return jsonError("Invalid row index");
             const fullRow = buildMasterRow(vCfg, JSON.parse(params.rowData));
             masterSheet.getRange(rowIndex, 1, 1, fullRow.length).setValues([fullRow]);
-            SpreadsheetApp.flush();
             bustCache(vCfg.masterSheet);
             bustCache(virtualSheetName);
             return jsonSuccess("Data updated successfully");
@@ -416,7 +448,6 @@ function handleVirtualSheetPost(virtualSheetName, action, params, ss) {
             const rowIndex = parseInt(params.rowIndex);
             if (isNaN(rowIndex) || rowIndex < 2) return jsonError("Invalid row index");
             masterSheet.deleteRow(rowIndex);
-            SpreadsheetApp.flush();
             bustCache(vCfg.masterSheet);
             bustCache(virtualSheetName);
             return jsonSuccess("Row deleted successfully");
@@ -428,7 +459,7 @@ function handleVirtualSheetPost(virtualSheetName, action, params, ss) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  File upload (unchanged logic, same flow)
+//  File upload
 // ─────────────────────────────────────────────────────────────
 function handleFileUpload(params) {
     try {
@@ -461,7 +492,7 @@ function uploadFileToDrive(base64Data, fileName, mimeType, folderId) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  doGet  — entry point for GET requests
+//  doGet — entry point for GET requests
 // ─────────────────────────────────────────────────────────────
 function doGet(e) {
     try {
@@ -469,7 +500,6 @@ function doGet(e) {
         const sheetName = e.parameter.sheet || e.parameter.sheetName || "Data";
         const ss = getSpreadsheet();
 
-        // Write actions that arrive via GET (legacy support)
         if (WRITE_ACTIONS[action]) {
             if (VIRTUAL_SHEETS[sheetName]) {
                 return handleVirtualSheetPost(sheetName, action, e.parameter, ss);
@@ -479,7 +509,6 @@ function doGet(e) {
             return WRITE_ACTIONS[action](sheet, e.parameter);
         }
 
-        // Default: read
         return handleRead(sheetName, ss);
 
     } catch (err) {
@@ -488,11 +517,11 @@ function doGet(e) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  doPost — entry point for POST requests
+//  doPost — entry point for POST requests (with LockService)
 // ─────────────────────────────────────────────────────────────
 function doPost(e) {
     try {
-        const params = parseParameters(e); // parsed once
+        const params = parseParameters(e);
         const action = params.action || 'insert';
         const sheetName = params.sheetName;
         const ss = getSpreadsheet();
@@ -509,7 +538,13 @@ function doPost(e) {
         const handler = WRITE_ACTIONS[action];
         if (!handler) return jsonError("Unknown action: " + action);
 
-        return handler(sheet, params);
+        const lock = LockService.getScriptLock();
+        try {
+            lock.tryLock(5000);
+            return handler(sheet, params);
+        } finally {
+            try { lock.releaseLock(); } catch (_) {}
+        }
 
     } catch (err) {
         console.error("doPost error:", err);
