@@ -228,22 +228,30 @@ function diff(oldArr, newArr, keyField) {
 // ── Global in-memory cache & event bus per sheet (persists across page navigations) ──────
 const globalSheetCache = {};
 const globalSheetListeners = {};
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache TTL
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache TTL
 
 function getValidCache(sheetName) {
-  // Cache disabled: always return null to force fresh fetch
-  return null;
+  const c = globalSheetCache[sheetName];
+  if (!c) return null;
+  // Login sheet is always kept — never expires during the session
+  if (sheetName === 'Login') return c;
+  if (Date.now() - c.fetchedAt > CACHE_TTL_MS) {
+    console.log(`[useSheetData] Cache expired for "${sheetName}" (>5 mins). Clearing.`);
+    delete globalSheetCache[sheetName];
+    return null;
+  }
+  return c;
 }
 
-// Auto-cleanup interval every 60 seconds to prune cache older than 10 minutes
+// Auto-cleanup interval every 60 seconds to prune cache older than 5 minutes
 if (typeof window !== 'undefined' && !window.__sheetCacheCleanerSet) {
   window.__sheetCacheCleanerSet = true;
   setInterval(() => {
     const now = Date.now();
     Object.keys(globalSheetCache).forEach((sName) => {
-      if (sName === 'Login') return; // keep Login cache untouched
+      if (sName === 'Login') return; // keep Login cache untouched for the whole session
       if (globalSheetCache[sName] && now - globalSheetCache[sName].fetchedAt > CACHE_TTL_MS) {
-        console.log(`[useSheetData] Auto-cleared 10-minute expired cache for "${sName}"`);
+        console.log(`[useSheetData] Auto-cleared 5-minute expired cache for "${sName}"`);
         delete globalSheetCache[sName];
       }
     });
@@ -295,7 +303,12 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
     headers.current = newHeaders;
     internal.current = newInternal;
     const cleanData = newInternal.map(normalizeRow);
-    // No global cache storage
+    globalSheetCache[sheetName] = {
+      headers: newHeaders,
+      internal: newInternal,
+      data: cleanData,
+      fetchedAt: Date.now(),
+    };
     setDataState(cleanData);
     notifySheet(sheetName, cleanData, newInternal, newHeaders, instanceId.current);
   };
@@ -316,7 +329,11 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
   // ── Initial load / Silent revalidation ────────────────────────────────────
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+
+    // Show spinner only when there is no valid cached data
+    if (!getValidCache(sheetName)) {
+      setLoading(true);
+    }
 
     fetchSheet(sheetName)
       .then(({ headers: h, data: rows }) => {

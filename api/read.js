@@ -1,46 +1,8 @@
 // Vercel serverless function — mirrors the Vite dev proxy for GET requests
-import https from 'https';
-import http from 'http';
+// Uses native fetch() which handles redirects automatically and works reliably on Vercel
 
-function fetchFollowRedirects(targetUrl, depth = 0) {
-  if (depth > 5) return Promise.reject(new Error('Too many redirects'));
-  return new Promise((resolve, reject) => {
-    let parsed;
-    try {
-      parsed = new URL(targetUrl);
-    } catch (e) {
-      return reject(e);
-    }
-    const transport = parsed.protocol === 'https:' ? https : http;
-
-    const opts = {
-      hostname: parsed.hostname,
-      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
-      path: parsed.pathname + parsed.search,
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,application/json,*/*;q=0.8',
-      },
-    };
-
-    const req = transport.request(opts, (res) => {
-      if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
-        res.resume();
-        const nextUrl = new URL(res.headers.location, targetUrl).href;
-        return fetchFollowRedirects(nextUrl, depth + 1)
-          .then(resolve)
-          .catch(reject);
-      }
-      const parts = [];
-      res.on('data', (c) => parts.push(c));
-      res.on('end', () => resolve(Buffer.concat(parts).toString('utf8')));
-      res.on('error', reject);
-    });
-
-    req.on('error', reject);
-  });
-}
+const SCRIPT_URL_FALLBACK =
+  'https://script.google.com/macros/s/AKfycbw29a7GH4YEEVSsZLRvFGmN89CBaz66HSfVw-8-S6KkfyDjUUTgA7XYrfaVyr5affalaA/exec';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -52,33 +14,54 @@ export default async function handler(req, res) {
     return;
   }
 
-  // Use env var if set; otherwise fall back to a default script URL (useful for deployed builds)
-  const scriptUrl = (process.env.VITE_SCRIPT_URL || '').trim() ||
-    'https://script.google.com/macros/s/AKfycbw29a7GH4YEEVSsZLRvFGmN89CBaz66HSfVw-8-S6KkfyDjUUTgA7XYrfaVyr5affalaA/exec';
+  const scriptUrl =
+    (process.env.VITE_SCRIPT_URL || '').trim() || SCRIPT_URL_FALLBACK;
 
   try {
     const urlObj = new URL(req.url, 'http://localhost');
-    const fullTarget = scriptUrl + urlObj.search;
+    // Ensure the action=read param is present (Apps Script needs it)
+    if (!urlObj.searchParams.has('action')) {
+      urlObj.searchParams.set('action', 'read');
+    }
+    const fullTarget = scriptUrl + '?' + urlObj.searchParams.toString();
 
-    const text = await fetchFollowRedirects(fullTarget);
+    const response = await fetch(fullTarget, {
+      method: 'GET',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'application/json, text/html, */*',
+      },
+      redirect: 'follow', // automatically follow Google's 302 redirects
+    });
 
+    const text = await response.text();
+
+    // Google sometimes wraps JSON in HTML — extract the outermost JSON object
     const start = text.indexOf('{');
     const end = text.lastIndexOf('}');
-    const candidate = start !== -1 && end !== -1 ? text.slice(start, end + 1) : '';
+    const candidate =
+      start !== -1 && end !== -1 ? text.slice(start, end + 1) : '';
 
     let parsed;
     try {
       parsed = JSON.parse(candidate);
     } catch {
+      console.error(
+        '[api/read] Non-JSON response (first 500 chars):',
+        text.slice(0, 500)
+      );
       res.status(200).json({
         success: false,
-        error: 'Apps Script returned non-JSON. Ensure Web App deployment access is set to "Anyone".',
+        error:
+          'Apps Script returned non-JSON. Ensure Web App deployment access is set to "Anyone".',
       });
       return;
     }
 
     res.status(200).json(parsed);
   } catch (err) {
+    console.error('[api/read] fetch error:', err);
     res.status(200).json({ success: false, error: err.message });
   }
 }
