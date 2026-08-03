@@ -150,10 +150,24 @@ export function AuthProvider({ children }) {
   );
 }
 
+const defaultAuthContext = {
+  currentUser: null,
+  users: [],
+  authLoading: true,
+  authError: null,
+  setAuthError: () => {},
+  login: async () => false,
+  logout: () => {},
+  addUser: async () => {},
+  updateUser: async () => {},
+  deleteUser: async () => {},
+  hasPermission: () => true,
+};
+
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    return defaultAuthContext;
   }
   return context;
 }

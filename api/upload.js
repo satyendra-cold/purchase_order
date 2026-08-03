@@ -90,6 +90,6 @@ export default async function handler(req, res) {
 
     res.status(200).json(parsed);
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(200).json({ success: false, error: err.message });
   }
 }

@@ -13,7 +13,18 @@ function fetchFollowRedirects(targetUrl, depth = 0) {
     }
     const transport = parsed.protocol === 'https:' ? https : http;
 
-    const req = transport.get(targetUrl, (res) => {
+    const opts = {
+      hostname: parsed.hostname,
+      port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+      path: parsed.pathname + parsed.search,
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,application/json,*/*;q=0.8',
+      },
+    };
+
+    const req = transport.request(opts, (res) => {
       if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
         res.resume();
         const nextUrl = new URL(res.headers.location, targetUrl).href;
@@ -70,6 +81,6 @@ export default async function handler(req, res) {
 
     res.status(200).json(parsed);
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.status(200).json({ success: false, error: err.message });
   }
 }

@@ -521,6 +521,7 @@ export function PrintInvoicePage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Actions</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-center">Extra Qty</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Transporter</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Invoice Number</TableHead>
@@ -562,6 +563,9 @@ export function PrintInvoicePage() {
                       </TableCell>
                       <TableCell className="pl-4 md:pl-6 py-4 text-left font-semibold text-primary text-xs sm:text-sm">{item.poNumber}</TableCell>
                       <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">{item.vendorName}</TableCell>
+                      <TableCell className="py-4 text-center text-xs sm:text-sm font-semibold text-blue-600 dark:text-blue-400">
+                        {item.extraQty ?? item['Extra Qty'] ?? item.BF ?? 0}
+                      </TableCell>
                       <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
                         {item.transporterName ? (
                           <span className="font-medium text-foreground">{item.transporterName}</span>
@@ -630,7 +634,10 @@ export function PrintInvoicePage() {
 
       {/* Confirm Dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[440px] bg-card border-border shadow-xl rounded-2xl p-6">
+        <DialogContent
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-[440px] bg-card border-border shadow-xl rounded-2xl p-6"
+        >
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Printer className="h-5 w-5 text-emerald-500" />Confirm Invoice Printed
@@ -682,7 +689,10 @@ export function PrintInvoicePage() {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialog.open} onOpenChange={(open) => !open && setDetailDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6">
+        <DialogContent
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6"
+        >
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Eye className="h-5 w-5 text-primary" />Invoice Details
@@ -694,6 +704,7 @@ export function PrintInvoicePage() {
               {[
                 { label: 'PO Number', value: detailDialog.item.poNumber },
                 { label: 'Vendor', value: detailDialog.item.vendorName },
+                { label: 'Extra Qty', value: detailDialog.item.extraQty ?? detailDialog.item['Extra Qty'] ?? detailDialog.item.BF ?? 0 },
                 { label: 'Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
                 { label: 'Location', value: detailDialog.item.location },
                 { label: 'Address', value: detailDialog.item.address },

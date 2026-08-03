@@ -129,6 +129,8 @@ const SHEET_CONFIGS = {
             'Received Amount': 'receivedAmount',
             'Supply Quantity 2': 'supplyQuantity2',
             'Damage Qty': 'damageQty',
+            'Supply Check': 'supplyCheck',
+            'Extra Qty': 'extraQty',
             'Payment History': 'paymentHistory',
         }
     },

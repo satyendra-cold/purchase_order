@@ -36,10 +36,42 @@ async function postParams(params) {
 
 // ── Sheet read ─────────────────────────────────────────────────────────────
 export async function fetchSheet(sheetName) {
-  const url = `/api/read?sheet=${encodeURIComponent(sheetName)}`;
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Failed to fetch "${sheetName}": ${res.status}`);
-  const json = await res.json();
+  const proxyUrl = `/api/read?sheet=${encodeURIComponent(sheetName)}`;
+  const directUrl = SCRIPT_URL
+    ? `${SCRIPT_URL}?action=read&sheet=${encodeURIComponent(sheetName)}`
+    : `https://script.google.com/macros/s/AKfycbxD549icyeMVBH7fzfba0nUDhGn4ZfjL3hv0AjMDp18zhT5zIo3Lp3JH9Mi5OQCHRcm/exec?action=read&sheet=${encodeURIComponent(sheetName)}`;
+
+  console.log(`[fetchSheet] Requesting sheet "${sheetName}" via proxy: ${proxyUrl}`);
+
+  let res;
+  let text = '';
+
+  try {
+    res = await fetch(proxyUrl);
+    console.log(`[fetchSheet] "${sheetName}" Proxy HTTP Status: ${res.status}`);
+    text = await res.text();
+  } catch (err) {
+    console.warn(`[fetchSheet] Proxy fetch failed for "${sheetName}": ${err.message}. Trying direct URL...`);
+  }
+
+  // If proxy returned non-OK or non-JSON (e.g. HTML login page), attempt direct browser fetch
+  let json;
+  try {
+    json = parseJSON(text);
+  } catch (e) {
+    console.warn(`[fetchSheet] Proxy returned non-JSON for "${sheetName}" (first 500 chars):`, (text || '').slice(0, 500));
+    console.log(`[fetchSheet] Attempting direct Apps Script fetch: ${directUrl}`);
+    res = await fetch(directUrl, { redirect: 'follow' });
+    console.log(`[fetchSheet] "${sheetName}" Direct HTTP Status: ${res.status}`);
+    const directText = await res.text();
+    try {
+      json = parseJSON(directText);
+    } catch {
+      console.error(`[fetchSheet] Direct fetch also returned non-JSON for "${sheetName}" (first 500 chars):`, directText.slice(0, 500));
+      throw new Error(`Apps Script returned non-JSON for "${sheetName}". Ensure "Who has access" is set to "Anyone".`);
+    }
+  }
+
   if (!json.success) throw new Error(json.error || `Error fetching "${sheetName}"`);
 
   const rows = json.data || [];

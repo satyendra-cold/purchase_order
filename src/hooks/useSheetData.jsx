@@ -48,31 +48,13 @@ function getValueForHeader(item, h) {
     return item.createdBy ?? item['Created By'] ?? '';
   }
   if (target === 'poreceiveddate') {
-    return item.poReceivedDate ?? item['PO Received Date'] ?? '';
+    return item.poReceivedDate ?? row['PO Received Date'] ?? '';
   }
   if (target === 'poexpireddate') {
-    return item.poExpiredDate ?? item['PO Expired Date'] ?? '';
+    return item.poExpiredDate ?? row['PO Expired Date'] ?? '';
   }
-  if (target === 'popdf' || target === 'popdfname') {
-    return item.poPdfName || item.poPdfUrl || item.poPdf || item['PO PDF'] || '';
-  }
-  if (target === 'billnumber') {
-    return item.billNumber ?? item['Bill Number'] ?? '';
-  }
-  if (target === 'billamount') {
-    return item.billAmount ?? item['Bill Amount'] ?? '';
-  }
-  if (target === 'billdate') {
-    return item.billDate ?? item['Bill Date'] ?? '';
-  }
-  if (target === 'billpdf') {
-    return item.billPdf ?? item['Bill PDF'] ?? '';
-  }
-  if (target === 'actualdate') {
-    return item.actualDate ?? item['Actual Date'] ?? '';
-  }
-  if (target === 'updatedby') {
-    return item.updatedBy ?? item['Updated By'] ?? '';
+  if (target === 'popdfname') {
+    return item.poPdfName ?? row['PO PDF'] ?? '';
   }
   if (target === 'deletestatus') {
     return item.deleteStatus ?? item['Delete Status'] ?? '';
@@ -80,47 +62,60 @@ function getValueForHeader(item, h) {
   if (target === 'deliveredqty') {
     return item.deliveredQty ?? item['Delivered Qty'] ?? '';
   }
+  if (target === 'narretion' || target === 'narration' || target === 'bc') {
+    return item.narretion ?? item['Narretion'] ?? item.narration ?? item['Narration'] ?? item.BC ?? item['BC'] ?? '';
+  }
+  if (target === 'supplyquantity1') {
+    return item.supplyQuantity1 ?? item['Supply Quantity 1'] ?? '';
+  }
+  if (target === 'receivedamount') {
+    return item.receivedAmount ?? item['Received Amount'] ?? '';
+  }
+  if (target === 'supplyquantity2') {
+    return item.supplyQuantity2 ?? item['Supply Quantity 2'] ?? '';
+  }
   if (target === 'pendingqty') {
     return item.pendingQty ?? item['Pending Qty'] ?? '';
   }
   if (target === 'cancelqty') {
     return item.cancelQty ?? item['Cancel Qty'] ?? '';
   }
-  if (target === 'damageqty') {
+  if (target === 'damageqty' || target === 'bd') {
     return item.damageQty ?? item['Damage Qty'] ?? item['Damage Quantity'] ?? item.BD ?? item['BD'] ?? '';
   }
-
-  for (const [k, v] of Object.entries(item)) {
-    if (k.toLowerCase().replace(/[^a-z0-9]/g, '') === target && v !== undefined && v !== null) {
-      return v;
-    }
+  if (target === 'extraqty' || target === 'bf') {
+    return item.extraQty ?? item['Extra Qty'] ?? item.BF ?? item['BF'] ?? '';
+  }
+  if (target === 'supplycheck') {
+    return item.supplyCheck ?? item['Supply Check'] ?? '';
+  }
+  if (target === 'billamount') {
+    return item.billAmount ?? item['Bill Amount'] ?? '';
   }
 
   return '';
 }
 
-// Convert an object to a flat row array in the order defined by the sheet headers.
-// Arrays (e.g. pageAccess) are JSON-serialised so they survive a round-trip.
-// Read-only fields (planned*, delay*) are always sent as '' so the sheet formula
-// is never overwritten.
-function toRow(headers, item) {
-  return headers.map((h, idx) => {
-    if (isReadOnlyField(h)) return ''; // never overwrite sheet-computed columns
-    let v = getValueForHeader(item, h);
-    if (idx === 54 && (!v || h === 'BC')) v = item.narration ?? item.narretion ?? item.BC ?? item['Narration'] ?? '';
-    if (idx === 55 && (!v || h === 'BD')) v = item.damageQty ?? item.BD ?? item['Damage Qty'] ?? '';
-    if (Array.isArray(v)) return JSON.stringify(v);
-    return v != null ? String(v) : '';
+function toRow(headersList, item) {
+  return headersList.map(h => {
+    if (isReadOnlyField(h)) return '';
+    const val = getValueForHeader(item, h);
+    return Array.isArray(val) ? JSON.stringify(val) : (val ?? '');
   });
 }
 
-// Diff two snapshots of an entity array and return what changed.
-// oldArr contains _row; newArr may or may not (new items won't have it).
-// Read-only fields (planned*, delay*) are excluded from the comparison —
-// they are sheet-computed and never written back, so changes to them (e.g.
-// the sheet recalculates a delay after an actual date is saved) must not
-// generate spurious updateRow calls.
-function stripReadOnly(obj) {
+function rowEquals(headersList, itemA, itemB) {
+  for (const h of headersList) {
+    if (isReadOnlyField(h)) continue;
+    const a = getValueForHeader(itemA, h);
+    const b = getValueForHeader(itemB, h);
+    if (String(a) !== String(b)) return false;
+  }
+  return true;
+}
+
+function cleanForDiff(obj) {
+  if (!obj) return {};
   return Object.fromEntries(
     Object.entries(obj).filter(([k]) => !isReadOnlyField(k))
   );
@@ -129,7 +124,7 @@ function stripReadOnly(obj) {
 function getKeyVal(obj, keyField) {
   if (!obj || !keyField) return '';
   if (obj[keyField] != null && obj[keyField] !== '') return String(obj[keyField]);
-  
+
   // Case/space/punctuation-insensitive fallback
   const target = String(keyField).toLowerCase().replace(/[^a-z0-9]/g, '');
   for (const [k, v] of Object.entries(obj)) {
@@ -205,6 +200,10 @@ function normalizeRow(row) {
     billAmount: row.billAmount ?? row['Bill Amount'] ?? '',
     'Bill Amount': row.billAmount ?? row['Bill Amount'] ?? '',
     damageQty: row.damageQty ?? row['Damage Qty'] ?? row['Damage Quantity'] ?? row.BD ?? row['BD'] ?? '',
+    extraQty: row.extraQty ?? row['Extra Qty'] ?? row.BF ?? row['BF'] ?? '',
+    'Extra Qty': row.extraQty ?? row['Extra Qty'] ?? row.BF ?? row['BF'] ?? '',
+    supplyCheck: row.supplyCheck ?? row['Supply Check'] ?? '',
+    'Supply Check': row.supplyCheck ?? row['Supply Check'] ?? '',
   };
 }
 
@@ -220,57 +219,135 @@ function diff(oldArr, newArr, keyField) {
       const key = getKeyVal(x, keyField);
       const prev = oldMap.get(key);
       if (!prev) return false;
-      const { _row: _a, ...a } = prev;
-      const { _row: _b, ...b } = x;
-      // Compare only writable fields — ignore planned*/delay* differences
-      return JSON.stringify(stripReadOnly(a)) !== JSON.stringify(stripReadOnly(b));
-    })
-    .map(x => ({ ...x, _row: oldMap.get(getKeyVal(x, keyField))._row }));
+      return JSON.stringify(cleanForDiff(x)) !== JSON.stringify(cleanForDiff(prev));
+    });
 
-  return { inserts, deletes, updates };
+  return { inserts, updates, deletes };
+}
+
+// ── Global in-memory cache & event bus per sheet (persists across page navigations) ──────
+const globalSheetCache = {};
+const globalSheetListeners = {};
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache TTL
+
+function getValidCache(sheetName) {
+  const c = globalSheetCache[sheetName];
+  if (!c) return null;
+  // Preserve Login sheet cache without expiration
+  if (sheetName === 'Login') return c;
+  if (Date.now() - c.fetchedAt > CACHE_TTL_MS) {
+    console.log(`[useSheetData] Cache expired for "${sheetName}" (>10 mins). Clearing cache to free system memory.`);
+    delete globalSheetCache[sheetName];
+    return null;
+  }
+  return c;
+}
+
+// Auto-cleanup interval every 60 seconds to prune cache older than 10 minutes
+if (typeof window !== 'undefined' && !window.__sheetCacheCleanerSet) {
+  window.__sheetCacheCleanerSet = true;
+  setInterval(() => {
+    const now = Date.now();
+    Object.keys(globalSheetCache).forEach((sName) => {
+      if (sName === 'Login') return; // keep Login cache untouched
+      if (globalSheetCache[sName] && now - globalSheetCache[sName].fetchedAt > CACHE_TTL_MS) {
+        console.log(`[useSheetData] Auto-cleared 10-minute expired cache for "${sName}"`);
+        delete globalSheetCache[sName];
+      }
+    });
+  }, 60 * 1000);
+}
+
+function subscribeSheet(sheetName, callback) {
+  if (!globalSheetListeners[sheetName]) globalSheetListeners[sheetName] = new Set();
+  globalSheetListeners[sheetName].add(callback);
+  return () => {
+    globalSheetListeners[sheetName]?.delete(callback);
+  };
+}
+
+function notifySheet(sheetName, cleanData, newInternal, newHeaders, sourceId) {
+  if (globalSheetListeners[sheetName]) {
+    globalSheetListeners[sheetName].forEach(cb => cb(cleanData, newInternal, newHeaders, sourceId));
+  }
 }
 
 /**
- * Drop-in async replacement for useLocalStorage.
+ * Custom hook to read and update a Google Sheet via our serverless API proxy.
  *
- * Usage:
- *   const [data, setData, loading] = useSheetData('SheetName', 'keyField');
+ * Parameters:
+ * - sheetName : string (e.g. 'FMS', 'Login', 'Vendors')
+ * - keyField  : string (e.g. 'poNumber', 'id', '_row')
+ * - options   : { onError: (msg) => void }
  *
- * - data      — clean array of objects (no _row); same shape pages already consume.
- * - setData   — accepts a new array OR a functional updater (prev => newArray).
- *               Updates state optimistically, then syncs to the sheet in background.
- * - loading   — true while the initial fetch is in flight.
- *
- * The hook tracks sheet row indices internally so it can issue precise
- * insertRow / updateRow / deleteRow calls without needing a full sheet rewrite.
+ * Returns: [data, setData, loading]
  */
 export function useSheetData(sheetName, keyField, { onError } = {}) {
-  // internal state keeps _row on every item for sheet operations
-  const internal = useRef([]);
-  const headers  = useRef([]);
+  const instanceId = useRef(Math.random());
+  const cached = getValidCache(sheetName);
 
-  // clean state exposed to components (no _row)
-  const [data, setDataState] = useState([]);
-  const dataRef = useRef([]);
-  const [loading, setLoading] = useState(true);
+  // internal state keeps _row on every item for sheet operations
+  const internal = useRef(cached ? cached.internal : []);
+  const headers  = useRef(cached ? cached.headers : []);
+
+  // clean state exposed to components
+  const [data, setDataState] = useState(cached ? cached.data : []);
+  const dataRef = useRef(data);
+  const [loading, setLoading] = useState(!cached);
 
   // keep refs in sync with latest state so async callbacks see fresh values
   useEffect(() => { dataRef.current = data; }, [data]);
 
-  // ── Initial load ──────────────────────────────────────────────────────────
+  // helper to update memory state and global cache
+  const updateGlobalCache = (newInternal, newHeaders) => {
+    headers.current = newHeaders;
+    internal.current = newInternal;
+    const cleanData = newInternal.map(normalizeRow);
+    globalSheetCache[sheetName] = {
+      headers: newHeaders,
+      internal: newInternal,
+      data: cleanData,
+      fetchedAt: Date.now()
+    };
+    setDataState(cleanData);
+    notifySheet(sheetName, cleanData, newInternal, newHeaders, instanceId.current);
+  };
+
+  // Subscribe to real-time updates from other component instances
+  useEffect(() => {
+    const unsub = subscribeSheet(sheetName, (cleanData, newInternal, newHeaders, sourceId) => {
+      if (sourceId !== instanceId.current) {
+        internal.current = newInternal;
+        headers.current = newHeaders;
+        setDataState(cleanData);
+        setLoading(false);
+      }
+    });
+    return unsub;
+  }, [sheetName]);
+
+  // ── Initial load / Silent revalidation ────────────────────────────────────
   useEffect(() => {
     let alive = true;
-    setLoading(true);
+
+    // Show initial loading spinner ONLY if no cached data exists
+    if (!globalSheetCache[sheetName]) {
+      setLoading(true);
+    }
+
     fetchSheet(sheetName)
       .then(({ headers: h, data: rows }) => {
         if (!alive) return;
-        headers.current  = h;
         const normalizedRows = rows.map(({ _row, ...rest }) => ({ _row, ...normalizeRow(rest) }));
-        internal.current = normalizedRows;
-        setDataState(normalizedRows);
+        updateGlobalCache(normalizedRows, h);
       })
-      .catch(err => console.error(`[useSheetData] ${sheetName}:`, err))
-      .finally(() => { if (alive) setLoading(false); });
+      .catch(err => {
+        console.error(`[useSheetData] ${sheetName}:`, err);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+
     return () => { alive = false; };
   }, [sheetName]);
 
@@ -279,36 +356,31 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
   const setData = useCallback(async (valueOrUpdater) => {
-    // resolve functional updater (e.g. setPrev(prev => [...prev, item]))
     const newClean =
       typeof valueOrUpdater === 'function'
         ? valueOrUpdater(dataRef.current)
         : valueOrUpdater;
 
-    // no keyField → simple overwrite (used by locations array of strings, etc.)
     if (!keyField) {
-      internal.current = newClean.map((item, i) => ({ _row: i + 2, ...item }));
-      setDataState(newClean);
+      const newInternal = newClean.map((item, i) => ({ _row: i + 2, ...item }));
+      updateGlobalCache(newInternal, headers.current);
       return;
     }
 
     const oldInternal = internal.current;
     const oldMap = new Map(oldInternal.map(x => [getKeyVal(x, keyField), x]));
 
-    // rebuild internal: carry over existing _row where available
     const newInternal = newClean.map(x => {
       const prev = oldMap.get(getKeyVal(x, keyField));
-      return prev ? { ...x, _row: prev._row } : { ...x }; // new items: no _row yet
+      return prev ? { ...x, _row: prev._row } : { ...x };
     });
 
-    // compute diff BEFORE the optimistic update so we compare old vs new correctly
     const changes = diff(oldInternal, newInternal, keyField);
 
-    // optimistic state update (UI responds instantly)
-    internal.current = newInternal;
-    setDataState(newInternal.map(normalizeRow));
+    // Optimistically update memory state & global cache instantly
+    updateGlobalCache(newInternal, headers.current);
 
-    if (!headers.current.length) return; // sheet not loaded yet; skip sync
+    if (!headers.current.length) return;
 
     // ── deletes (use batchDelete when deleting multiple rows) ─────────────────
     if (changes.deletes.length > 0) {
@@ -320,11 +392,13 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
         try {
           await batchDelete(sheetName, deleteIndices);
           const sorted = [...deleteIndices].sort((a, b) => b - a);
+          let currentInt = internal.current;
           sorted.forEach((deletedRow) => {
-            internal.current = internal.current
+            currentInt = currentInt
               .filter((x) => x._row !== deletedRow)
               .map((x) => (x._row > deletedRow ? { ...x, _row: x._row - 1 } : x));
           });
+          updateGlobalCache(currentInt, headers.current);
         } catch (err) {
           console.error(`[useSheetData] batchDelete failed in "${sheetName}":`, err);
           onErrorRef.current?.(`Batch delete failed: ${err.message}`);
@@ -334,9 +408,10 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
         for (const item of sortedDeletes) {
           try {
             await deleteRow(sheetName, item._row);
-            internal.current = internal.current
+            const currentInt = internal.current
               .filter((x) => getKeyVal(x, keyField) !== getKeyVal(item, keyField))
               .map((x) => (x._row > item._row ? { ...x, _row: x._row - 1 } : x));
+            updateGlobalCache(currentInt, headers.current);
           } catch (err) {
             console.error(`[useSheetData] delete failed in "${sheetName}":`, err);
             onErrorRef.current?.(`Delete failed: ${err.message}`);
@@ -350,14 +425,16 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
       const cellUpdates = [];
       for (const item of changes.updates) {
         const prev = oldMap.get(getKeyVal(item, keyField));
-        let col55Handled = false;
         let col56Handled = false;
+        let col57Handled = false;
+        let col58Handled = false;
 
         for (let i = 0; i < headers.current.length; i++) {
           const h = headers.current[i];
-          if (isReadOnlyField(h)) continue; // never write planned* or delay*
-          if (i === 54) col55Handled = true;
+          if (isReadOnlyField(h)) continue;
           if (i === 55) col56Handled = true;
+          if (i === 56) col57Handled = true;
+          if (i === 57) col58Handled = true;
 
           const newVal = getValueForHeader(item, h);
           const oldVal = prev ? getValueForHeader(prev, h) : undefined;
@@ -367,17 +444,22 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
           cellUpdates.push({ rowIndex: item._row, columnIndex: i + 1, value: cellValue });
         }
 
-        // Fallbacks for Column BC (55th column) & BD (56th column)
-        const bcVal = item.narration ?? item['Narration'] ?? item.BC ?? item['BC'] ?? item.narretion ?? item['Narretion'];
-        const prevBcVal = prev ? (prev.narration ?? prev['Narration'] ?? prev.BC ?? prev['BC'] ?? prev.narretion ?? prev['Narretion']) : undefined;
-        if (!col55Handled && bcVal !== undefined && String(bcVal) !== String(prevBcVal ?? '') && item._row) {
-          cellUpdates.push({ rowIndex: item._row, columnIndex: 55, value: String(bcVal) });
-        }
-
         const bdVal = item.damageQty ?? item['Damage Qty'] ?? item['Damage Quantity'] ?? item.BD ?? item['BD'];
         const prevBdVal = prev ? (prev.damageQty ?? prev['Damage Qty'] ?? prev['Damage Quantity'] ?? prev.BD ?? prev['BD']) : undefined;
         if (!col56Handled && bdVal !== undefined && String(bdVal) !== String(prevBdVal ?? '') && item._row) {
           cellUpdates.push({ rowIndex: item._row, columnIndex: 56, value: String(bdVal) });
+        }
+
+        const beVal = item.vehicleNumber ?? item['Vehicle Number'] ?? item['Vehicle number'] ?? item.BE ?? item['BE'];
+        const prevBeVal = prev ? (prev.vehicleNumber ?? prev['Vehicle Number'] ?? prev['Vehicle number'] ?? prev.BE ?? prev['BE']) : undefined;
+        if (!col57Handled && beVal !== undefined && String(beVal) !== String(prevBeVal ?? '') && item._row) {
+          cellUpdates.push({ rowIndex: item._row, columnIndex: 57, value: String(beVal) });
+        }
+
+        const bfVal = item.extraQty ?? item['Extra Qty'] ?? item.BF ?? item['BF'];
+        const prevBfVal = prev ? (prev.extraQty ?? prev['Extra Qty'] ?? prev.BF ?? prev['BF']) : undefined;
+        if (!col58Handled && bfVal !== undefined && String(bfVal) !== String(prevBfVal ?? '') && item._row) {
+          cellUpdates.push({ rowIndex: item._row, columnIndex: 58, value: String(bfVal) });
         }
       }
 
@@ -401,90 +483,19 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
     for (const item of changes.inserts) {
       try {
         await insertRow(sheetName, toRow(headers.current, item));
-        // assign the new sheet row to the in-memory item
         const assignedRow = nextRow++;
-        internal.current = internal.current.map(x =>
+        const currentInt = internal.current.map(x =>
           !x._row && getKeyVal(x, keyField) === getKeyVal(item, keyField)
             ? { ...x, _row: assignedRow }
             : x
         );
+        updateGlobalCache(currentInt, headers.current);
       } catch (err) {
         console.error(`[useSheetData] insert failed in "${sheetName}":`, err);
         onErrorRef.current?.(`Insert failed: ${err.message}`);
       }
     }
-  }, [sheetName, keyField]); // stable — does not depend on data state
-
-  // ── Refetch: reload data from sheet ──────────────────────────────────────
-  const refetch = useCallback(() => {
-    setLoading(true);
-    fetchSheet(sheetName)
-      .then(({ headers: h, data: rows }) => {
-        headers.current  = h;
-        internal.current = rows;
-        setDataState(rows.map(({ _row, ...rest }) => rest));
-      })
-      .catch(err => console.error(`[useSheetData] refetch ${sheetName}:`, err))
-      .finally(() => setLoading(false));
-  }, [sheetName]);
-
-  // ── setLocalOnly: update React state WITHOUT syncing to sheet ─────────────
-  // Use for optimistic updates when you handle the sheet sync yourself (patchItem).
-  const setLocalOnly = useCallback((valueOrUpdater) => {
-    const newClean =
-      typeof valueOrUpdater === 'function'
-        ? valueOrUpdater(dataRef.current)
-        : valueOrUpdater;
-    const oldMap = new Map(internal.current.map(x => [getKeyVal(x, keyField), x]));
-    internal.current = newClean.map(x => {
-      const prev = oldMap.get(getKeyVal(x, keyField));
-      return prev ? { ...x, _row: prev._row } : { ...x };
-    });
-    setDataState(newClean.map(normalizeRow));
-  }, [keyField]);
-
-  // ── patchItem: write specific fields directly to sheet ────────────────────
-  // Validates that all requested columns exist in the sheet, then writes the
-  // entire row in one atomic updateRow call. Throws on any failure.
-  const patchItem = useCallback(async (keyValue, fields, { onlySpecified = false } = {}) => {
-    const internalItem = internal.current.find(
-      x => String(x[keyField] ?? '') === String(keyValue) ||
-           String(x['Serial No'] ?? '') === String(keyValue) ||
-           String(x['serialNo'] ?? '') === String(keyValue) ||
-           String(x['poNumber'] ?? '') === String(keyValue)
-    );
-    if (!internalItem?._row) throw new Error('Row not found — try refreshing the page.');
-    if (!headers.current.length) throw new Error('Sheet not loaded — try refreshing the page.');
-
-    const headerSet = new Set(headers.current);
-
-    // Columns in `fields` that the sheet doesn't have — skip gracefully
-    const unknownCols = Object.keys(fields).filter(
-      k => !isReadOnlyField(k) && !headerSet.has(k)
-    );
-    if (unknownCols.length > 0) {
-      console.warn(`[patchItem] "${sheetName}" sheet has no column(s): ${unknownCols.join(', ')} — skipping`);
-    }
-
-    // If NONE of the requested writable fields exist, the write would be a no-op — fail loudly
-    const writableCols = Object.keys(fields).filter(k => !isReadOnlyField(k) && headerSet.has(k));
-    if (writableCols.length === 0) {
-      throw new Error(
-        `Sheet "${sheetName}" is missing all required column(s): ${Object.keys(fields).join(', ')}. ` +
-        `Add these headers to the Google Sheet and refresh the page.`
-      );
-    }
-
-    // Write only the specified writable fields using updateCell to ensure non-patched columns, formulas, and formatting are untouched
-    for (const colName of writableCols) {
-      const colIndex = headers.current.indexOf(colName) + 1;
-      if (colIndex > 0) {
-        const val = fields[colName];
-        const cellValue = Array.isArray(val) ? JSON.stringify(val) : (val != null ? String(val) : '');
-        await updateCell(sheetName, internalItem._row, colIndex, cellValue);
-      }
-    }
   }, [sheetName, keyField]);
 
-  return [data, setData, loading, refetch, setLocalOnly, patchItem];
+  return [data, setData, loading];
 }

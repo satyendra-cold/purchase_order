@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useSheetData } from '@/hooks/useSheetData';
+import { usePagination } from '@/hooks/usePagination';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -55,6 +56,7 @@ export function SupplyCheckPage() {
   const [activeTab, setActiveTab] = useState('pending');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [damageQtyInput, setDamageQtyInput] = useState('');
+  const [extraQtyInput, setExtraQtyInput] = useState('');
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
   const [cancelDialog, setCancelDialog] = useState({ open: false, item: null });
 
@@ -68,7 +70,8 @@ export function SupplyCheckPage() {
     const nowTimestamp = makeTimestamp(); // M/D/YYYY H:mm:ss format
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
     const totalQty = Number(item.totalQuantity || item['Total Quantity'] || item.quantity || item['Quantity'] || 0);
-    const parsedDamage = damageQtyInput !== '' ? parseFloat(damageQtyInput) : '';
+    const parsedDamage = damageQtyInput !== '' ? parseFloat(damageQtyInput) : 0;
+    const parsedExtra = extraQtyInput !== '' ? parseFloat(extraQtyInput) : 0;
 
     if (damageQtyInput !== '') {
       if (isNaN(parsedDamage) || parsedDamage < 0) {
@@ -77,6 +80,13 @@ export function SupplyCheckPage() {
       }
       if (totalQty > 0 && parsedDamage > totalQty) {
         toast(`Damaged quantity (${parsedDamage}) cannot be greater than total quantity (${totalQty})`, 'error');
+        return;
+      }
+    }
+
+    if (extraQtyInput !== '') {
+      if (isNaN(parsedExtra) || parsedExtra < 0) {
+        toast('Extra quantity cannot be negative', 'error');
         return;
       }
     }
@@ -93,6 +103,13 @@ export function SupplyCheckPage() {
             damageQty: parsedDamage,
             'BD': parsedDamage,
             BD: parsedDamage,
+            'Extra Qty': parsedExtra,
+            'Extra Quantity': parsedExtra,
+            extraQty: parsedExtra,
+            'BF': parsedExtra,
+            BF: parsedExtra,
+            'Supply Check': `Checked (Dmg: ${parsedDamage}, Extra: ${parsedExtra})`,
+            supplyCheck: `Checked (Dmg: ${parsedDamage}, Extra: ${parsedExtra})`,
           }
         : r
     );
@@ -137,58 +154,62 @@ export function SupplyCheckPage() {
     };
   }, [fmsData]);
 
+  const { visibleItems, hasMore, loadMore, containerRef, displayedCount, totalCount } = usePagination(filteredItems, 50);
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="text-left">
-          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-tight text-foreground text-left">
             Supply Check
           </h1>
-          <p className="text-xs md:text-sm text-muted-foreground mt-1">
-            Perform physical checks and verify received supply items against purchase orders.
+          <p className="text-xs md:text-sm text-muted-foreground mt-1 text-left">
+            Verify received physical supply against purchase orders.
           </p>
         </div>
       </div>
 
-      {/* Summary Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-w-2xl">
         <Card className="border-border bg-card shadow-sm rounded-2xl">
-          <CardContent className="py-4 px-5 flex items-center gap-4">
-            <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
+          <CardContent className="py-4 px-5 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary shrink-0">
               <ClipboardCheck className="h-5 w-5" />
             </div>
-            <div className="text-left">
+            <div className="text-left min-w-0">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Total Checks</p>
-              <p className="text-xl font-bold text-foreground">{counts.all}</p>
+              <p className="text-base font-bold text-foreground truncate">{counts.all}</p>
             </div>
           </CardContent>
         </Card>
+
         <Card className="border-border bg-card shadow-sm rounded-2xl">
-          <CardContent className="py-4 px-5 flex items-center gap-4">
-            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-              <AlertCircle className="h-5 w-5" />
+          <CardContent className="py-4 px-5 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 shrink-0">
+              <Clock className="h-5 w-5" />
             </div>
-            <div className="text-left">
+            <div className="text-left min-w-0">
               <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Pending</p>
-              <p className="text-xl font-bold text-foreground">{counts.pending}</p>
+              <p className="text-base font-bold text-amber-700 dark:text-amber-300 truncate">{counts.pending}</p>
             </div>
           </CardContent>
         </Card>
+
         <Card className="border-border bg-card shadow-sm rounded-2xl">
-          <CardContent className="py-4 px-5 flex items-center gap-4">
-            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+          <CardContent className="py-4 px-5 flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 shrink-0">
               <CheckCircle2 className="h-5 w-5" />
             </div>
-            <div className="text-left">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Checked</p>
-              <p className="text-xl font-bold text-foreground">{counts.completed}</p>
+            <div className="text-left min-w-0">
+              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Completed</p>
+              <p className="text-base font-bold text-emerald-700 dark:text-emerald-300 truncate">{counts.completed}</p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Main Table Card */}
+      {/* Main Table */}
       <Card className="border-border bg-card shadow-sm rounded-2xl">
         <CardHeader className="py-4 px-4 md:px-6 border-b border-border flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -222,13 +243,15 @@ export function SupplyCheckPage() {
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto w-full">
+          <div ref={containerRef} className="overflow-x-auto w-full max-h-[70vh]">
             <Table>
-              <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border">
+              <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border sticky top-0 z-10 backdrop-blur-sm">
                 <TableRow>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Actions</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">PO Quantity</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-center">Extra Qty</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Status</TableHead>
@@ -236,17 +259,19 @@ export function SupplyCheckPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.length > 0 ? (
-                  filteredItems.map((item) => (
+                {visibleItems.length > 0 ? (
+                  visibleItems.map((item) => (
                     <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
                       <TableCell className="pl-4 md:pl-6 py-4 text-left">
                         <div className="flex items-center gap-1.5">
-                          {!hasValue(item.actual5) && (
+                          {!hasValue(item.actual5) ? (
                             <>
                               <Button
                                 onClick={() => {
                                   const existingDamage = item.damageQty ?? item['Damage Qty'] ?? item['Damage Quantity'] ?? item.BD ?? item['BD'] ?? '';
+                                  const existingExtra = item.extraQty ?? item['Extra Qty'] ?? item.BF ?? item['BF'] ?? '';
                                   setDamageQtyInput(existingDamage !== '' ? String(existingDamage) : '');
+                                  setExtraQtyInput(existingExtra !== '' ? String(existingExtra) : '');
                                   setConfirmDialog({ open: true, item });
                                 }}
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
@@ -263,11 +288,27 @@ export function SupplyCheckPage() {
                                 Cancel
                               </Button>
                             </>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setDetailDialog({ open: true, item })}
+                              className="h-7 px-2.5 text-[11px] rounded-lg gap-1 border-border hover:bg-accent text-foreground cursor-pointer"
+                            >
+                              <Eye className="h-3 w-3 text-muted-foreground" />
+                              View
+                            </Button>
                           )}
                         </div>
                       </TableCell>
                       <TableCell className="pl-4 md:pl-6 py-4 text-left font-semibold text-primary text-xs sm:text-sm">{item.poNumber}</TableCell>
                       <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">{item.vendorName}</TableCell>
+                      <TableCell className="py-4 text-left font-bold text-xs sm:text-sm text-foreground">
+                        {Number(item.totalQuantity || item['Total Quantity'] || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="py-4 text-center font-semibold text-xs sm:text-sm text-blue-600 dark:text-blue-400">
+                        {item.extraQty ?? item['Extra Qty'] ?? item.BF ?? 0}
+                      </TableCell>
                       <TableCell className="py-4 text-left">
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-neutral-100 dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200 border border-border">
                           <MapPin className="h-2.5 w-2.5 text-muted-foreground" />{item.location}
@@ -302,14 +343,14 @@ export function SupplyCheckPage() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={7} className="py-16 text-center">
+                    <TableCell colSpan={10} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                        <div className="p-3 bg-primary/5 rounded-full"><ClipboardCheck className="h-8 w-8 text-primary/40" /></div>
+                        <div className="p-3 bg-primary/5 rounded-full">
+                          <ClipboardCheck className="h-8 w-8 text-primary/40" />
+                        </div>
                         <div className="space-y-1">
-                          <p className="text-sm font-semibold text-foreground/70">No supply check records</p>
-                          <p className="text-xs font-normal">
-                            No records match your current filters.
-                          </p>
+                          <p className="text-sm font-semibold text-foreground/70">No supply checks found</p>
+                          <p className="text-xs">There are no records matching your current filter criteria.</p>
                         </div>
                       </div>
                     </TableCell>
@@ -318,24 +359,44 @@ export function SupplyCheckPage() {
               </TableBody>
             </Table>
           </div>
+          {hasMore && (
+            <div className="py-3 px-4 text-center border-t border-border bg-card flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>Showing <strong>{displayedCount}</strong> of <strong>{totalCount}</strong> records (50 per batch)</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadMore}
+                className="rounded-xl text-xs px-4 h-8 bg-primary/5 hover:bg-primary/10 text-primary border-primary/20 cursor-pointer font-medium"
+              >
+                Load Next 50 Rows
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Confirm Dialog */}
+      {/* Confirm Supply Check Dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[440px] bg-card border-border shadow-xl rounded-2xl p-6">
+        <DialogContent
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6"
+        >
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-              <ClipboardCheck className="h-5 w-5 text-emerald-500" />Verify Received Supply
+              <ClipboardCheck className="h-5 w-5 text-emerald-600" />
+              Verify Supply Check
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-1">
-              This will mark the received supply as checked and stamp Actual 5 (col AI).
+              Confirm physical received supply details.
             </DialogDescription>
           </DialogHeader>
+
           {confirmDialog.item && (() => {
             const totalQty = Number(confirmDialog.item.totalQuantity || confirmDialog.item['Total Quantity'] || confirmDialog.item.quantity || confirmDialog.item['Quantity'] || 0);
             const damageVal = damageQtyInput !== '' ? parseFloat(damageQtyInput) : 0;
+            const extraVal = extraQtyInput !== '' ? parseFloat(extraQtyInput) : 0;
             const isDamageInvalid = damageQtyInput !== '' && (isNaN(damageVal) || damageVal < 0 || (totalQty > 0 && damageVal > totalQty));
+            const isExtraInvalid = extraQtyInput !== '' && (isNaN(extraVal) || extraVal < 0);
 
             return (
               <>
@@ -357,29 +418,32 @@ export function SupplyCheckPage() {
                     <span className="font-medium">{formatDate(confirmDialog.item.planned5)}</span>
                   </div>
                   <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Extra Qty</span>
+                    <span className="font-semibold text-blue-600 dark:text-blue-400">
+                      {confirmDialog.item.extraQty ?? confirmDialog.item['Extra Qty'] ?? confirmDialog.item.BF ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">Verified By</span>
                     <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
                   </div>
+
+                  {/* Damage Qty Input */}
                   <div className="space-y-1.5 text-left pt-2 border-t border-border">
                     <Label className="text-xs font-semibold text-muted-foreground">Damage Qty</Label>
                     <Input
                       type="number"
                       min="0"
                       max={totalQty > 0 ? totalQty : undefined}
-                      step="any"
+                      step="1"
                       value={damageQtyInput}
                       onChange={(e) => setDamageQtyInput(e.target.value)}
-                      placeholder="e.g. 0"
+                      placeholder="Enter damaged quantity (e.g. 0)"
                       className={`rounded-xl bg-background border-input text-xs h-10 ${isDamageInvalid ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
                     />
                     {damageQtyInput !== '' && totalQty > 0 && damageVal > totalQty && (
                       <p className="text-[11px] text-rose-500 font-medium mt-1">
-                        Damaged quantity cannot be greater than total quantity ({totalQty.toLocaleString()}).
-                      </p>
-                    )}
-                    {damageQtyInput !== '' && damageVal < 0 && (
-                      <p className="text-[11px] text-rose-500 font-medium mt-1">
-                        Damaged quantity cannot be negative.
+                        Cannot exceed total qty ({totalQty.toLocaleString()}).
                       </p>
                     )}
                   </div>
@@ -402,7 +466,10 @@ export function SupplyCheckPage() {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialog.open} onOpenChange={(open) => !open && setDetailDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6">
+        <DialogContent
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6"
+        >
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Eye className="h-5 w-5 text-primary" />Supply Check Details
@@ -414,13 +481,15 @@ export function SupplyCheckPage() {
               {[
                 { label: 'PO Number', value: detailDialog.item.poNumber },
                 { label: 'Vendor', value: detailDialog.item.vendorName },
-                { label: 'Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
+                { label: 'PO Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
                 { label: 'Location', value: detailDialog.item.location },
                 { label: 'Address', value: detailDialog.item.address },
                 { label: 'Planned 5 (AH)', value: formatDate(detailDialog.item.planned5) },
                 { label: 'Actual 5 (AI)', value: hasValue(detailDialog.item.actual5) ? formatDate(detailDialog.item.actual5) : 'Not yet' },
                 { label: 'Status', value: hasValue(detailDialog.item.actual5) ? 'Checked' : 'Pending' },
-                { label: 'Damage Qty (BD)', value: hasValue(detailDialog.item.damageQty) || hasValue(detailDialog.item.BD) || hasValue(detailDialog.item['Damage Qty']) ? (detailDialog.item.damageQty ?? detailDialog.item.BD ?? detailDialog.item['Damage Qty']) : '0' },
+                { label: 'Damage Qty', value: detailDialog.item.damageQty ?? detailDialog.item['Damage Qty'] ?? detailDialog.item.BD ?? 0 },
+                { label: 'Extra Qty', value: detailDialog.item.extraQty ?? detailDialog.item['Extra Qty'] ?? detailDialog.item.BF ?? 0 },
+                { label: 'Vehicle Number (BE)', value: detailDialog.item.vehicleNumber ?? detailDialog.item['Vehicle Number'] ?? detailDialog.item.BE ?? '—' },
                 { label: 'Delay 5 (AJ)', value: hasValue(detailDialog.item.actual5) ? (detailDialog.item.delay5 === 0 ? 'On time' : `${detailDialog.item.delay5} day(s)`) : '—' },
                 { label: 'Updated By', value: detailDialog.item.updatedBy || '—' },
               ].map((row) => (

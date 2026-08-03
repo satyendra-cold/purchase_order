@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useSheetData } from '@/hooks/useSheetData';
+import { usePagination } from '@/hooks/usePagination';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -70,10 +71,10 @@ export function ApproveProductPage() {
     const updated = fmsData.map((r) =>
       r.poNumber === item.poNumber
         ? {
-            ...r,
-            actual6: nowTimestamp,
-            updatedBy: userName,
-          }
+          ...r,
+          actual6: nowTimestamp,
+          updatedBy: userName,
+        }
         : r
     );
     setFmsData(updated);
@@ -116,6 +117,8 @@ export function ApproveProductPage() {
       completed: historyCount,
     };
   }, [fmsData]);
+
+  const { visibleItems, hasMore, loadMore, containerRef, displayedCount, totalCount } = usePagination(filteredItems, 50);
 
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-300">
@@ -190,9 +193,8 @@ export function ApproveProductPage() {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key)}
-                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${
-                    activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                  }`}
+                  className={`px-3 py-1.5 text-[11px] font-semibold rounded-lg transition-all cursor-pointer ${activeTab === tab.key ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                    }`}
                 >
                   {tab.label}<span className="ml-1.5 text-[10px] opacity-70">({counts[tab.key]})</span>
                 </button>
@@ -202,14 +204,16 @@ export function ApproveProductPage() {
         </CardHeader>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto w-full">
+          <div ref={containerRef} className="overflow-x-auto w-full max-h-[70vh]">
             <Table>
-              <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border">
+              <TableHeader className="bg-neutral-50/50 dark:bg-neutral-900/10 border-b border-border sticky top-0 z-10 backdrop-blur-sm">
                 <TableRow>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Actions</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">PO Quantity</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-center">Damage Qty </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-center">Extra Qty </TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Pending Quantity</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Canceled Quantity</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
@@ -219,8 +223,8 @@ export function ApproveProductPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.length > 0 ? (
-                  filteredItems.map((item) => (
+                {visibleItems.length > 0 ? (
+                  visibleItems.map((item) => (
                     <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
                       <TableCell className="pl-4 md:pl-6 py-4 text-left">
                         <div className="flex items-center gap-1.5">
@@ -246,6 +250,12 @@ export function ApproveProductPage() {
                       <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">{item.vendorName}</TableCell>
                       <TableCell className="py-4 text-left font-bold text-xs sm:text-sm text-foreground">
                         {Number(item.totalQuantity || item['Total Quantity'] || 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell className="py-4 text-center font-semibold text-xs sm:text-sm text-rose-600 dark:text-rose-400">
+                        {item.damageQty ?? item['Damage Qty'] ?? item.BD ?? 0}
+                      </TableCell>
+                      <TableCell className="py-4 text-center font-semibold text-xs sm:text-sm text-blue-600 dark:text-blue-400">
+                        {item.extraQty ?? item['Extra Qty'] ?? item.BF ?? 0}
                       </TableCell>
                       <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
                         {(item['Pending Qty'] != null && item['Pending Qty'] !== '')
@@ -307,12 +317,28 @@ export function ApproveProductPage() {
               </TableBody>
             </Table>
           </div>
+          {hasMore && (
+            <div className="py-3 px-4 text-center border-t border-border bg-card flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>Showing <strong>{displayedCount}</strong> of <strong>{totalCount}</strong> records (50 per batch)</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadMore}
+                className="rounded-xl text-xs px-4 h-8 bg-primary/5 hover:bg-primary/10 text-primary border-primary/20 cursor-pointer font-medium"
+              >
+                Load Next 50 Rows
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
       {/* Confirm Dialog */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[440px] bg-card border-border shadow-xl rounded-2xl p-6">
+        <DialogContent
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-[440px] bg-card border-border shadow-xl rounded-2xl p-6"
+        >
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <CheckSquare className="h-5 w-5 text-emerald-500" />Confirm Product Approval
@@ -352,7 +378,10 @@ export function ApproveProductPage() {
 
       {/* Detail Dialog */}
       <Dialog open={detailDialog.open} onOpenChange={(open) => !open && setDetailDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6">
+        <DialogContent
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-[480px] bg-card border-border shadow-xl rounded-2xl p-6"
+        >
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <Eye className="h-5 w-5 text-primary" />Approval Details
@@ -364,7 +393,9 @@ export function ApproveProductPage() {
               {[
                 { label: 'PO Number', value: detailDialog.item.poNumber },
                 { label: 'Vendor', value: detailDialog.item.vendorName },
-                { label: 'Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
+                { label: 'PO Quantity', value: detailDialog.item.totalQuantity?.toLocaleString() },
+                { label: 'Damage Qty', value: detailDialog.item.damageQty ?? detailDialog.item['Damage Qty'] ?? detailDialog.item.BD ?? 0 },
+                { label: 'Extra Qty', value: detailDialog.item.extraQty ?? detailDialog.item['Extra Qty'] ?? detailDialog.item.BF ?? 0 },
                 { label: 'Location', value: detailDialog.item.location },
                 { label: 'Address', value: detailDialog.item.address },
                 { label: 'Planned 6 (AK)', value: formatDate(detailDialog.item.planned6) },

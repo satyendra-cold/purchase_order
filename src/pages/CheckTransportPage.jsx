@@ -282,7 +282,7 @@ export function CheckTransportPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">Actions</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Transporter</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-center">Extra Qty</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Planned</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Status</TableHead>
@@ -352,13 +352,9 @@ export function CheckTransportPage() {
                         {item.vendorName}
                       </TableCell>
 
-                      {/* Transporter */}
-                      <TableCell className="py-4 text-left text-xs sm:text-sm text-muted-foreground">
-                        {hasValue(item.transporterName || item['Transporter name'] || item['Transporter Name'] || item['Transporter']) ? (
-                          <span className="font-medium text-foreground">{item.transporterName || item['Transporter name'] || item['Transporter Name'] || item['Transporter']}</span>
-                        ) : (
-                          <span className="italic">—</span>
-                        )}
+                      {/* Extra Qty */}
+                      <TableCell className="py-4 text-center text-xs sm:text-sm font-semibold text-blue-600 dark:text-blue-400">
+                        {item.extraQty ?? item['Extra Qty'] ?? item.BF ?? 0}
                       </TableCell>
 
                       {/* Location */}

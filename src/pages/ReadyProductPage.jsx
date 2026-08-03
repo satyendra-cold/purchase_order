@@ -64,10 +64,13 @@ export function ReadyProductPage() {
   const isPending = (row) => hasValue(row.planned2) && !hasValue(row.actual2);
   const isCompleted = (row) => hasValue(row.planned2) && hasValue(row.actual2);
 
+  const [extraQtyInput, setExtraQtyInput] = useState('');
+
   // ── Mark product as ready ──────────────────────────────────────────
   const handleMarkReady = (item) => {
     const nowTimestamp = makeTimestamp(); // M/D/YYYY H:mm:ss format
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
+    const parsedExtra = extraQtyInput !== '' && !isNaN(parseInt(extraQtyInput, 10)) ? parseInt(extraQtyInput, 10) : 0;
 
     const updated = readyProducts.map((r) =>
       r.poNumber === item.poNumber
@@ -75,6 +78,11 @@ export function ReadyProductPage() {
             ...r,
             actual2: nowTimestamp,
             updatedBy: userName,
+            'Extra Qty': parsedExtra,
+            'Extra Quantity': parsedExtra,
+            extraQty: parsedExtra,
+            'BF': parsedExtra,
+            BF: parsedExtra,
           }
         : r
     );
@@ -273,6 +281,8 @@ export function ReadyProductPage() {
                             <>
                               <Button
                                 onClick={() => {
+                                  const existingExtra = item.extraQty ?? item['Extra Qty'] ?? item.BF ?? '';
+                                  setExtraQtyInput(existingExtra !== '' ? String(existingExtra) : '');
                                   setConfirmDialog({ open: true, item });
                                 }}
                                 className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm"
@@ -393,7 +403,10 @@ export function ReadyProductPage() {
 
       {/* ── Confirm Ready Dialog ───────────────────────────────────── */}
       <Dialog open={confirmDialog.open} onOpenChange={(open) => !open && setConfirmDialog({ open: false, item: null })}>
-        <DialogContent className="sm:max-w-[440px] bg-card border-border shadow-xl rounded-2xl p-6">
+        <DialogContent
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          className="sm:max-w-[440px] bg-card border-border shadow-xl rounded-2xl p-6"
+        >
           <DialogHeader className="text-left mb-2">
             <DialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <PackageCheck className="h-5 w-5 text-emerald-500" />
@@ -421,6 +434,24 @@ export function ReadyProductPage() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Processed By</span>
                 <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
+              </div>
+
+              <div className="space-y-1.5 text-left pt-2 border-t border-border">
+                <Label className="text-xs font-semibold text-muted-foreground">Extra Quantity</Label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="1"
+                  value={extraQtyInput}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === '' || /^\d+$/.test(val)) {
+                      setExtraQtyInput(val);
+                    }
+                  }}
+                  placeholder="Enter extra quantity (integer e.g. 100)"
+                  className="rounded-xl bg-background border-input text-xs h-10"
+                />
               </div>
             </div>
           )}

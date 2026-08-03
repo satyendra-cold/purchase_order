@@ -21,10 +21,14 @@ function fetchFollowRedirects(targetUrl, method = 'GET', contentType = null, bod
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
       path: parsed.pathname + parsed.search,
       method: method,
-      headers: method === 'POST' && contentType && body ? {
-        'Content-Type': contentType,
-        'Content-Length': Buffer.byteLength(body),
-      } : {},
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,application/json,*/*;q=0.8',
+        ...(method === 'POST' && contentType && body ? {
+          'Content-Type': contentType,
+          'Content-Length': Buffer.byteLength(body),
+        } : {})
+      },
     }
 
     const req = transport.request(opts, (res) => {
