@@ -131,6 +131,9 @@ const SHEET_CONFIGS = {
             'Damage Qty': 'damageQty',
             'Supply Check': 'supplyCheck',
             'Extra Qty': 'extraQty',
+            'Return Qty': 'returnQty',
+            'Supply Check Return Qty': 'returnQty',
+            'Return Quantity': 'returnQty',
             'Payment History': 'paymentHistory',
         }
     },

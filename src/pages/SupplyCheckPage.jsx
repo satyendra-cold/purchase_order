@@ -56,6 +56,7 @@ export function SupplyCheckPage() {
   const [activeTab, setActiveTab] = useState('pending');
   const [confirmDialog, setConfirmDialog] = useState({ open: false, item: null });
   const [damageQtyInput, setDamageQtyInput] = useState('');
+  const [returnQtyInput, setReturnQtyInput] = useState('');
   const [extraQtyInput, setExtraQtyInput] = useState('');
   const [detailDialog, setDetailDialog] = useState({ open: false, item: null });
   const [cancelDialog, setCancelDialog] = useState({ open: false, item: null });
@@ -71,6 +72,7 @@ export function SupplyCheckPage() {
     const userName = currentUser ? currentUser.name || currentUser.username : 'System';
     const totalQty = Number(item.totalQuantity || item['Total Quantity'] || item.quantity || item['Quantity'] || 0);
     const parsedDamage = damageQtyInput !== '' ? parseFloat(damageQtyInput) : 0;
+    const parsedReturn = returnQtyInput !== '' ? parseFloat(returnQtyInput) : 0;
     const parsedExtra = extraQtyInput !== '' ? parseFloat(extraQtyInput) : 0;
 
     if (damageQtyInput !== '') {
@@ -80,6 +82,17 @@ export function SupplyCheckPage() {
       }
       if (totalQty > 0 && parsedDamage > totalQty) {
         toast(`Damaged quantity (${parsedDamage}) cannot be greater than total quantity (${totalQty})`, 'error');
+        return;
+      }
+    }
+
+    if (returnQtyInput !== '') {
+      if (isNaN(parsedReturn) || parsedReturn < 0) {
+        toast('Return quantity cannot be negative', 'error');
+        return;
+      }
+      if (totalQty > 0 && parsedReturn > totalQty) {
+        toast(`Return quantity (${parsedReturn}) cannot be greater than total quantity (${totalQty})`, 'error');
         return;
       }
     }
@@ -103,13 +116,19 @@ export function SupplyCheckPage() {
             damageQty: parsedDamage,
             'BD': parsedDamage,
             BD: parsedDamage,
+            'Return Qty': parsedReturn,
+            'Supply Check Return Qty': parsedReturn,
+            'Return Quantity': parsedReturn,
+            returnQty: parsedReturn,
+            'BG': parsedReturn,
+            BG: parsedReturn,
             'Extra Qty': parsedExtra,
             'Extra Quantity': parsedExtra,
             extraQty: parsedExtra,
             'BF': parsedExtra,
             BF: parsedExtra,
-            'Supply Check': `Checked (Dmg: ${parsedDamage}, Extra: ${parsedExtra})`,
-            supplyCheck: `Checked (Dmg: ${parsedDamage}, Extra: ${parsedExtra})`,
+            'Supply Check': `Checked (Dmg: ${parsedDamage}, Ret: ${parsedReturn}, Extra: ${parsedExtra})`,
+            supplyCheck: `Checked (Dmg: ${parsedDamage}, Ret: ${parsedReturn}, Extra: ${parsedExtra})`,
           }
         : r
     );
@@ -269,8 +288,10 @@ export function SupplyCheckPage() {
                               <Button
                                 onClick={() => {
                                   const existingDamage = item.damageQty ?? item['Damage Qty'] ?? item['Damage Quantity'] ?? item.BD ?? item['BD'] ?? '';
+                                  const existingReturn = item.returnQty ?? item['Return Qty'] ?? item['Supply Check Return Qty'] ?? item.BG ?? item['BG'] ?? '';
                                   const existingExtra = item.extraQty ?? item['Extra Qty'] ?? item.BF ?? item['BF'] ?? '';
                                   setDamageQtyInput(existingDamage !== '' ? String(existingDamage) : '');
+                                  setReturnQtyInput(existingReturn !== '' ? String(existingReturn) : '');
                                   setExtraQtyInput(existingExtra !== '' ? String(existingExtra) : '');
                                   setConfirmDialog({ open: true, item });
                                 }}
@@ -394,8 +415,10 @@ export function SupplyCheckPage() {
           {confirmDialog.item && (() => {
             const totalQty = Number(confirmDialog.item.totalQuantity || confirmDialog.item['Total Quantity'] || confirmDialog.item.quantity || confirmDialog.item['Quantity'] || 0);
             const damageVal = damageQtyInput !== '' ? parseFloat(damageQtyInput) : 0;
+            const returnVal = returnQtyInput !== '' ? parseFloat(returnQtyInput) : 0;
             const extraVal = extraQtyInput !== '' ? parseFloat(extraQtyInput) : 0;
             const isDamageInvalid = damageQtyInput !== '' && (isNaN(damageVal) || damageVal < 0 || (totalQty > 0 && damageVal > totalQty));
+            const isReturnInvalid = returnQtyInput !== '' && (isNaN(returnVal) || returnVal < 0 || (totalQty > 0 && returnVal > totalQty));
             const isExtraInvalid = extraQtyInput !== '' && (isNaN(extraVal) || extraVal < 0);
 
             return (
@@ -428,31 +451,52 @@ export function SupplyCheckPage() {
                     <span className="font-medium">{currentUser ? currentUser.name || currentUser.username : 'System'}</span>
                   </div>
 
-                  {/* Damage Qty Input */}
-                  <div className="space-y-1.5 text-left pt-2 border-t border-border">
-                    <Label className="text-xs font-semibold text-muted-foreground">Damage Qty</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      max={totalQty > 0 ? totalQty : undefined}
-                      step="1"
-                      value={damageQtyInput}
-                      onChange={(e) => setDamageQtyInput(e.target.value)}
-                      placeholder="Enter damaged quantity (e.g. 0)"
-                      className={`rounded-xl bg-background border-input text-xs h-10 ${isDamageInvalid ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
-                    />
-                    {damageQtyInput !== '' && totalQty > 0 && damageVal > totalQty && (
-                      <p className="text-[11px] text-rose-500 font-medium mt-1">
-                        Cannot exceed total qty ({totalQty.toLocaleString()}).
-                      </p>
-                    )}
+                  {/* Damage Qty & Return Qty Inputs (Perpendicular 50-50 Split) */}
+                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
+                    <div className="space-y-1.5 text-left">
+                      <Label className="text-xs font-semibold text-muted-foreground">Damage Qty</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max={totalQty > 0 ? totalQty : undefined}
+                        step="1"
+                        value={damageQtyInput}
+                        onChange={(e) => setDamageQtyInput(e.target.value)}
+                        placeholder="Damaged qty (e.g. 0)"
+                        className={`rounded-xl bg-background border-input text-xs h-10 ${isDamageInvalid ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
+                      />
+                      {damageQtyInput !== '' && totalQty > 0 && damageVal > totalQty && (
+                        <p className="text-[11px] text-rose-500 font-medium mt-1">
+                          Cannot exceed total qty ({totalQty.toLocaleString()}).
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5 text-left">
+                      <Label className="text-xs font-semibold text-muted-foreground">Return Qty</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max={totalQty > 0 ? totalQty : undefined}
+                        step="1"
+                        value={returnQtyInput}
+                        onChange={(e) => setReturnQtyInput(e.target.value)}
+                        placeholder="Return qty (e.g. 0)"
+                        className={`rounded-xl bg-background border-input text-xs h-10 ${isReturnInvalid ? 'border-rose-500 focus-visible:ring-rose-500' : ''}`}
+                      />
+                      {returnQtyInput !== '' && totalQty > 0 && returnVal > totalQty && (
+                        <p className="text-[11px] text-rose-500 font-medium mt-1">
+                          Cannot exceed total qty ({totalQty.toLocaleString()}).
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <DialogFooter className="mt-4 gap-2">
                   <Button variant="outline" onClick={() => setConfirmDialog({ open: false, item: null })} className="border-border hover:bg-accent rounded-xl cursor-pointer">Cancel</Button>
                   <Button
                     onClick={() => confirmDialog.item && handleMarkComplete(confirmDialog.item)}
-                    disabled={isDamageInvalid}
+                    disabled={isDamageInvalid || isReturnInvalid}
                     className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl cursor-pointer gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ClipboardCheck className="h-4 w-4" />Verify Received

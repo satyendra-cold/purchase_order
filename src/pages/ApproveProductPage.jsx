@@ -212,8 +212,9 @@ export function ApproveProductPage() {
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider pl-4 md:pl-6 py-3 text-left">PO Number</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Vendor</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">PO Quantity</TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-center">Damage Qty </TableHead>
-                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-center">Extra Qty </TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-center">Damage Qty</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-center">Extra Qty</TableHead>
+                  <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-center">Return Qty</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Pending Quantity</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Canceled Quantity</TableHead>
                   <TableHead className="text-xs text-muted-foreground font-bold uppercase tracking-wider py-3 text-left">Location</TableHead>
@@ -224,39 +225,48 @@ export function ApproveProductPage() {
               </TableHeader>
               <TableBody>
                 {visibleItems.length > 0 ? (
-                  visibleItems.map((item) => (
-                    <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
-                      <TableCell className="pl-4 md:pl-6 py-4 text-left">
-                        <div className="flex items-center gap-1.5">
-                          {!hasValue(item.actual6) && (
-                            <>
-                              <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
-                                <CheckSquare className="h-3.5 w-3.5" />Approve
-                              </Button>
-                              <Button
-                                variant="outline"
-                                onClick={() => setCancelDialog({ open: true, item })}
-                                className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/30 gap-1 text-[11px] rounded-xl px-2.5 h-8 cursor-pointer"
-                                title="Cancel PO"
-                              >
-                                <XCircle className="h-3.5 w-3.5" />
-                                Cancel
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="pl-4 md:pl-6 py-4 text-left font-semibold text-primary text-xs sm:text-sm">{item.poNumber}</TableCell>
-                      <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">{item.vendorName}</TableCell>
-                      <TableCell className="py-4 text-left font-bold text-xs sm:text-sm text-foreground">
-                        {Number(item.totalQuantity || item['Total Quantity'] || 0).toLocaleString()}
-                      </TableCell>
-                      <TableCell className="py-4 text-center font-semibold text-xs sm:text-sm text-rose-600 dark:text-rose-400">
-                        {item.damageQty ?? item['Damage Qty'] ?? item.BD ?? 0}
-                      </TableCell>
-                      <TableCell className="py-4 text-center font-semibold text-xs sm:text-sm text-blue-600 dark:text-blue-400">
-                        {item.extraQty ?? item['Extra Qty'] ?? item.BF ?? 0}
-                      </TableCell>
+                  visibleItems.map((item) => {
+                    const rawPoQty = Number(item.totalQuantity || item['Total Quantity'] || item.quantity || item['Quantity'] || 0);
+                    const extraQty = Number(item.extraQty ?? item['Extra Qty'] ?? item.BF ?? 0);
+                    const returnQty = Number(item.returnQty ?? item['Return Qty'] ?? item['Supply Check Return Qty'] ?? item.BG ?? 0);
+                    const calculatedPoQty = rawPoQty + extraQty - returnQty;
+
+                    return (
+                      <TableRow key={item.poNumber} className="hover:bg-accent/40 border-b border-border transition-colors">
+                        <TableCell className="pl-4 md:pl-6 py-4 text-left">
+                          <div className="flex items-center gap-1.5">
+                            {!hasValue(item.actual6) && (
+                              <>
+                                <Button onClick={() => setConfirmDialog({ open: true, item })} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 text-[11px] rounded-xl px-3 h-8 cursor-pointer shadow-sm">
+                                  <CheckSquare className="h-3.5 w-3.5" />Approve
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  onClick={() => setCancelDialog({ open: true, item })}
+                                  className="border-rose-200 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-950/30 gap-1 text-[11px] rounded-xl px-2.5 h-8 cursor-pointer"
+                                  title="Cancel PO"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  Cancel
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="pl-4 md:pl-6 py-4 text-left font-semibold text-primary text-xs sm:text-sm">{item.poNumber}</TableCell>
+                        <TableCell className="py-4 text-left text-xs sm:text-sm font-medium text-foreground">{item.vendorName}</TableCell>
+                        <TableCell className="py-4 text-left font-bold text-xs sm:text-sm text-foreground">
+                          {calculatedPoQty.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="py-4 text-center font-semibold text-xs sm:text-sm text-rose-600 dark:text-rose-400">
+                          {item.damageQty ?? item['Damage Qty'] ?? item.BD ?? 0}
+                        </TableCell>
+                        <TableCell className="py-4 text-center font-semibold text-xs sm:text-sm text-blue-600 dark:text-blue-400">
+                          {extraQty}
+                        </TableCell>
+                        <TableCell className="py-4 text-center font-semibold text-xs sm:text-sm text-purple-600 dark:text-purple-400">
+                          {returnQty}
+                        </TableCell>
                       <TableCell className="py-4 text-left font-semibold text-xs sm:text-sm text-foreground">
                         {(item['Pending Qty'] != null && item['Pending Qty'] !== '')
                           ? Number(item['Pending Qty']).toLocaleString()
@@ -298,10 +308,11 @@ export function ApproveProductPage() {
                         )}
                       </TableCell>
                     </TableRow>
-                  ))
+                  );
+                })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="py-16 text-center">
+                    <TableCell colSpan={13} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-3 text-muted-foreground">
                         <div className="p-3 bg-primary/5 rounded-full"><CheckSquare className="h-8 w-8 text-primary/40" /></div>
                         <div className="space-y-1">

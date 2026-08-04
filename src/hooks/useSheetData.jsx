@@ -86,6 +86,9 @@ function getValueForHeader(item, h) {
   if (target === 'extraqty' || target === 'bf') {
     return item.extraQty ?? item['Extra Qty'] ?? item.BF ?? item['BF'] ?? '';
   }
+  if (target === 'returnqty' || target === 'supplycheckreturnqty' || target === 'bg') {
+    return item.returnQty ?? item['Return Qty'] ?? item['Supply Check Return Qty'] ?? item['Return Quantity'] ?? item.BG ?? item['BG'] ?? '';
+  }
   if (target === 'supplycheck') {
     return item.supplyCheck ?? item['Supply Check'] ?? '';
   }
@@ -202,6 +205,9 @@ function normalizeRow(row) {
     damageQty: row.damageQty ?? row['Damage Qty'] ?? row['Damage Quantity'] ?? row.BD ?? row['BD'] ?? '',
     extraQty: row.extraQty ?? row['Extra Qty'] ?? row.BF ?? row['BF'] ?? '',
     'Extra Qty': row.extraQty ?? row['Extra Qty'] ?? row.BF ?? row['BF'] ?? '',
+    returnQty: row.returnQty ?? row['Return Qty'] ?? row['Supply Check Return Qty'] ?? row['Return Quantity'] ?? row.BG ?? row['BG'] ?? '',
+    'Return Qty': row.returnQty ?? row['Return Qty'] ?? row['Supply Check Return Qty'] ?? row['Return Quantity'] ?? row.BG ?? row['BG'] ?? '',
+    'Supply Check Return Qty': row.returnQty ?? row['Return Qty'] ?? row['Supply Check Return Qty'] ?? row['Return Quantity'] ?? row.BG ?? row['BG'] ?? '',
     supplyCheck: row.supplyCheck ?? row['Supply Check'] ?? '',
     'Supply Check': row.supplyCheck ?? row['Supply Check'] ?? '',
   };
@@ -428,6 +434,7 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
         let col56Handled = false;
         let col57Handled = false;
         let col58Handled = false;
+        let col59Handled = false;
 
         for (let i = 0; i < headers.current.length; i++) {
           const h = headers.current[i];
@@ -435,6 +442,7 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
           if (i === 55) col56Handled = true;
           if (i === 56) col57Handled = true;
           if (i === 57) col58Handled = true;
+          if (i === 58) col59Handled = true;
 
           const newVal = getValueForHeader(item, h);
           const oldVal = prev ? getValueForHeader(prev, h) : undefined;
@@ -460,6 +468,12 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
         const prevBfVal = prev ? (prev.extraQty ?? prev['Extra Qty'] ?? prev.BF ?? prev['BF']) : undefined;
         if (!col58Handled && bfVal !== undefined && String(bfVal) !== String(prevBfVal ?? '') && item._row) {
           cellUpdates.push({ rowIndex: item._row, columnIndex: 58, value: String(bfVal) });
+        }
+
+        const bgVal = item.returnQty ?? item['Return Qty'] ?? item['Supply Check Return Qty'] ?? item.BG ?? item['BG'];
+        const prevBgVal = prev ? (prev.returnQty ?? prev['Return Qty'] ?? prev['Supply Check Return Qty'] ?? prev.BG ?? prev['BG']) : undefined;
+        if (!col59Handled && bgVal !== undefined && String(bgVal) !== String(prevBgVal ?? '') && item._row) {
+          cellUpdates.push({ rowIndex: item._row, columnIndex: 59, value: String(bgVal) });
         }
       }
 

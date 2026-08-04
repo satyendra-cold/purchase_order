@@ -65,7 +65,7 @@ export function GeneratePOPage() {
   const [poNumber, setPoNumber] = useState('');
   const [vendorName, setVendorName] = useState('');
   const [totalQuantity, setTotalQuantity] = useState('');
-  const [narretion, setNarretion] = useState('');
+  const [narration, setNarration] = useState('');
   const [supplyQuantity1, setSupplyQuantity1] = useState('');
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
@@ -98,7 +98,7 @@ export function GeneratePOPage() {
     setEditingOriginalPoNumber('');
     setVendorName('');
     setTotalQuantity('');
-    setNarretion('');
+    setNarration('');
     setSupplyQuantity1('');
     setLocation('');
     setAddress('');
@@ -119,7 +119,7 @@ export function GeneratePOPage() {
     setEditingOriginalPoNumber(po.poNumber);
     setVendorName(po.vendorName);
     setTotalQuantity(String(po.totalQuantity));
-    setNarretion(po['Narretion'] || po.narretion || '');
+    setNarration(po['Narration'] || po.narration || po['Narretion'] || po.narretion || '');
     setSupplyQuantity1(
       po['Supply Quantity 1'] != null && po['Supply Quantity 1'] !== ''
         ? String(po['Supply Quantity 1'])
@@ -226,7 +226,10 @@ export function GeneratePOPage() {
                 poExpiredDate,
                 poPdfName: updatedPoPdfName,
                 timestamp: editTimestamp,
-                'Narretion': narretion.trim(),
+                'Narration': narration.trim(),
+                narration: narration.trim(),
+                'Narretion': narration.trim(),
+                narretion: narration.trim(),
                 'Supply Quantity 1': parsedSupplyQty
               }
             : po
@@ -280,8 +283,10 @@ export function GeneratePOPage() {
           poExpiredDate,
           'PO PDF': poPdfUrl,
           poPdfName: poPdfUrl,
-          'Narretion': narretion.trim(),
-          narretion: narretion.trim(),
+          'Narration': narration.trim(),
+          narration: narration.trim(),
+          'Narretion': narration.trim(),
+          narretion: narration.trim(),
           'Supply Quantity 1': parsedSupplyQty,
           supplyQuantity1: parsedSupplyQty,
         };
@@ -674,18 +679,18 @@ export function GeneratePOPage() {
                 />
               </div>
 
-              {/* Narretion */}
+              {/* Narration */}
               <div className="space-y-1.5 text-left sm:col-span-2">
-                <Label htmlFor="narretion" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
+                <Label htmlFor="narration" className="text-xs font-semibold text-muted-foreground pl-0.5 flex items-center gap-1.5">
                   <FilePlus2 className="h-3.5 w-3.5" />
-                  Narretion
+                  Narration
                 </Label>
                 <Input
-                  id="narretion"
+                  id="narration"
                   type="text"
-                  value={narretion}
-                  onChange={(e) => setNarretion(e.target.value)}
-                  placeholder="Enter narretion..."
+                  value={narration}
+                  onChange={(e) => setNarration(e.target.value)}
+                  placeholder="Enter narration..."
                   className="rounded-xl bg-background border-input"
                 />
               </div>
