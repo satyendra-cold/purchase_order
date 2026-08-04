@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useSheetData } from '@/hooks/useSheetData';
-import { uploadFile, updateRow } from '@/services/api';
+import { uploadFile } from '@/services/api';
 import { makeTimestamp, formatDisplayDate, formatToTimestamp, isValidDate } from '@/utils/dateUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -344,27 +344,32 @@ export function CreateBillPage() {
 
     const parsedReceived = receivedAmountInput !== '' ? parseFloat(receivedAmountInput) : '';
     const parsedSupply2 = supplyQuantity2Input !== '' ? parseFloat(supplyQuantity2Input) : '';
+    const nowTimestamp = makeTimestamp();
 
-    const updatedRow = {
-      ...row,
-      billAmount: amount,
-      billDate: billDateInput,
-      billPdf: billPdfUrl,
-      'Received Amount': parsedReceived,
-      'Supply Quantity 2': parsedSupply2,
-      narration: narrationInput,
-      actual1: makeTimestamp(),
-    };
+    const updatedFms = fmsData.map((r) =>
+      (r._row === row._row || r.poNumber === row.poNumber)
+        ? {
+            ...r,
+            billAmount: amount,
+            'Bill Amount': amount,
+            billDate: billDateInput,
+            'Bill Date': billDateInput,
+            billPdf: billPdfUrl,
+            'Bill PDF': billPdfUrl,
+            receivedAmount: parsedReceived,
+            'Received Amount': parsedReceived,
+            supplyQuantity2: parsedSupply2,
+            'Supply Quantity 2': parsedSupply2,
+            narretion: narrationInput,
+            narration: narrationInput,
+            'Narration': narrationInput,
+            BC: narrationInput,
+            actual1: nowTimestamp,
+            'Actual 1': nowTimestamp,
+          }
+        : r
+    );
 
-    // Persist to Google Sheets
-    try {
-      await updateRow('FMS', row._row, updatedRow);
-    } catch (err) {
-      toast(`Failed to save bill: ${err.message}`, 'error');
-      return;
-    }
-
-    const updatedFms = fmsData.map((r) => (r._row === row._row ? updatedRow : r));
     setFmsData(updatedFms);
     toast(`Bill for ${row.poNumber} created successfully!`, 'success');
     setCreateBillDialog({ open: false, row: null });

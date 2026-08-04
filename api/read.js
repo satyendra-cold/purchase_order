@@ -2,7 +2,7 @@
 // Uses native fetch() which handles redirects automatically and works reliably on Vercel
 
 const SCRIPT_URL_FALLBACK =
-  'https://script.google.com/macros/s/AKfycbw29a7GH4YEEVSsZLRvFGmN89CBaz66HSfVw-8-S6KkfyDjUUTgA7XYrfaVyr5affalaA/exec';
+  'https://script.google.com/macros/s/AKfycbxD549icyeMVBH7fzfba0nUDhGn4ZfjL3hv0AjMDp18zhT5zIo3Lp3JH9Mi5OQCHRcm/exec';
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
