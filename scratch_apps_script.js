@@ -1,4 +1,4 @@
-var SPREADSHEET_ID = "17w8Yz1O-tXSYeVb3TxdMrCRzKQ8ZE74jQohSpUf7H2A";
+// Version 2 - updated backend actions
 var PO_PDF_FOLDER_ID = "1Hzz1nxg1A_rDaigFZ6ZMxpB2-AzSmIhM";
 var CACHE_EXPIRY_SEC = 60; // seconds for CacheService TTL
 
