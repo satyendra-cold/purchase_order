@@ -11,7 +11,7 @@ function getSpreadsheet() {
             if (typeof SPREADSHEET_ID !== 'undefined' && SPREADSHEET_ID) {
                 id = SPREADSHEET_ID;
             }
-        } catch (e) {}
+        } catch (e) { }
         _ss = SpreadsheetApp.openById(id);
     }
     return _ss;
@@ -548,7 +548,7 @@ function doPost(e) {
             lock.tryLock(5000);
             return handler(sheet, params);
         } finally {
-            try { lock.releaseLock(); } catch (_) {}
+            try { lock.releaseLock(); } catch (_) { }
         }
 
     } catch (err) {
