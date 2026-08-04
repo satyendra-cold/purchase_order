@@ -2,7 +2,7 @@ import { useState, useRef, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useSheetData } from '@/hooks/useSheetData';
-import { insertRow, uploadFile } from '@/services/api';
+import { uploadFile } from '@/services/api';
 import { makeTimestamp, formatDisplayDate } from '@/utils/dateUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -45,7 +45,7 @@ export function GeneratePOPage() {
   const { toast } = useToast();
 
   // Sheet-backed lists
-  const [purchaseOrders, setPurchaseOrders, , refetchPOs, setLocalPOs, patchItem] = useSheetData('FMS', 'poNumber');
+  const [purchaseOrders, setPurchaseOrders] = useSheetData('FMS', 'poNumber');
   const [locationData, setLocationData] = useSheetData('Locations', 'name');
   const [vendors] = useSheetData('Vendors', 'id');
   const locationNames = locationData.map(l => l.name);
@@ -289,30 +289,9 @@ export function GeneratePOPage() {
         // 1. Close form modal immediately so user returns to the list view
         setIsFormOpen(false);
 
-        // 2. Instantly update UI state using setLocalPOs (0ms real-time UI update!)
-        setLocalPOs(prev => [newPoObj, ...prev]);
-
-        // 3. Save single 52-column row to Google Sheets
-        const rowData = new Array(52).fill('');
-        rowData[0] = timestamp;
-        rowData[1] = nextSerialNo;
-        rowData[2] = poNumber.trim();
-        rowData[3] = vendorName.trim();
-        rowData[4] = qty;
-        rowData[5] = location;
-        rowData[6] = address.trim();
-        rowData[7] = createdBy;
-        rowData[8] = poReceivedDate;
-        rowData[9] = poExpiredDate;
-        rowData[10] = poPdfUrl;
-        rowData[50] = narretion.trim();
-        rowData[51] = parsedSupplyQty;
-
-        await insertRow('FMS', rowData);
+        // 2. Persist PO and update state via useSheetData hook
+        setPurchaseOrders((prev) => [newPoObj, ...prev]);
         toast(`Purchase Order ${poNumber.trim()} saved!`, 'success');
-
-        // 4. Refetch sheet to keep row indices and calculated formulas 100% in sync
-        refetchPOs();
       }
     } catch (err) {
       toast(`Failed: ${err.message}`, 'error');
