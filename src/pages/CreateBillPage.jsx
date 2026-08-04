@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useToast } from '@/hooks/useToast';
 import { useSheetData } from '@/hooks/useSheetData';
-import { uploadFile } from '@/services/api';
+import { uploadFile, updateRow } from '@/services/api';
 import { makeTimestamp, formatDisplayDate, formatToTimestamp, isValidDate } from '@/utils/dateUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -345,26 +345,26 @@ export function CreateBillPage() {
     const parsedReceived = receivedAmountInput !== '' ? parseFloat(receivedAmountInput) : '';
     const parsedSupply2 = supplyQuantity2Input !== '' ? parseFloat(supplyQuantity2Input) : '';
 
-    const updatedFms = fmsData.map((r) =>
-      r.poNumber === row.poNumber
-        ? {
-          ...r,
-          billNumber: `BILL-${row.poNumber}`,
-          billAmount: amount,
-          billDate: billDateInput,
-          billPdf: billPdfUrl,
-          'Received Amount': parsedReceived,
-          'Supply Quantity 2': parsedSupply2,
-          'Narretion': narrationInput,
-          narretion: narrationInput,
-          'Narration': narrationInput,
-          narration: narrationInput,
-          'BC': narrationInput,
-          BC: narrationInput,
-          actual1: makeTimestamp(), // set actual1 in M/D/YYYY H:mm:ss format immediately
-        }
-        : r
-    );
+    const updatedRow = {
+      ...row,
+      billAmount: amount,
+      billDate: billDateInput,
+      billPdf: billPdfUrl,
+      'Received Amount': parsedReceived,
+      'Supply Quantity 2': parsedSupply2,
+      narration: narrationInput,
+      actual1: makeTimestamp(),
+    };
+
+    // Persist to Google Sheets
+    try {
+      await updateRow('FMS', row._row, updatedRow);
+    } catch (err) {
+      toast(`Failed to save bill: ${err.message}`, 'error');
+      return;
+    }
+
+    const updatedFms = fmsData.map((r) => (r._row === row._row ? updatedRow : r));
     setFmsData(updatedFms);
     toast(`Bill for ${row.poNumber} created successfully!`, 'success');
     setCreateBillDialog({ open: false, row: null });
