@@ -469,7 +469,18 @@ export function useSheetData(sheetName, keyField, { onError } = {}) {
             const u = cellUpdates[0];
             await updateCell(sheetName, u.rowIndex, u.columnIndex, u.value);
           } else {
-            await batchUpdateCells(sheetName, cellUpdates);
+            try {
+              await batchUpdateCells(sheetName, cellUpdates);
+            } catch (batchErr) {
+              if (String(batchErr.message || '').includes('batchUpdateCells')) {
+                console.warn('[useSheetData] batchUpdateCells missing on Apps Script backend. Falling back to individual updateCell calls.');
+                await Promise.all(
+                  cellUpdates.map((u) => updateCell(sheetName, u.rowIndex, u.columnIndex, u.value))
+                );
+              } else {
+                throw batchErr;
+              }
+            }
           }
         } catch (err) {
           console.error(`[useSheetData] updates failed in "${sheetName}":`, err);
